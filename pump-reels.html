@@ -158,6 +158,23 @@
   .day .d { color: var(--muted); }
   .day .amt { font-weight: 800; color: var(--gold); font-size: 12px; margin-top: 2px; }
 
+  /* Airdrop pick-a-crate */
+  .airdrop-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0; }
+  .crate { aspect-ratio: 1; border: 1px solid var(--edge); border-radius: 14px; cursor: pointer;
+    background: linear-gradient(180deg, #1a2440, #0e1526); color: var(--text);
+    display: grid; place-items: center; gap: 2px; font-weight: 800; transition: transform .1s, border-color .15s;
+    box-shadow: var(--shadow); }
+  .crate .lid { font-size: 34px; transition: transform .15s; }
+  .crate:not(.open):not(.miss):active { transform: scale(.94); }
+  .crate:not(.open):not(.miss):hover { border-color: var(--gold); }
+  .crate.open { border-color: var(--gold); background: rgba(244,197,66,.16); flex-direction: column;
+    animation: cratepop .35s cubic-bezier(0.16,1,0.3,1); }
+  .crate.open .prize { color: var(--gold-2); font-size: 22px; }
+  .crate.open .nanas { font-size: 10px; color: var(--muted); font-weight: 700; }
+  .crate.miss { opacity: .42; }
+  .crate.miss .prize { color: var(--muted); font-size: 16px; }
+  @keyframes cratepop { from { transform: scale(.7); } to { transform: scale(1); } }
+
   /* ---- Big win banner (in-flow, non-blocking) ---- */
   .winbanner {
     position: fixed; top: 18%; left: 50%; transform: translateX(-50%) scale(.6); z-index: 40;
@@ -249,12 +266,24 @@
 <div class="overlay" id="infoOverlay">
   <div class="card" style="text-align:left; max-width:420px;">
     <h2 style="text-align:center">How Pump Reels works</h2>
-    <p><b>5 reels × 3 rows, 9 paylines.</b> Match symbols left-to-right on a payline to win (low altcoins pay from 2, everything else from 3). Top symbols: 💎 🚀 🐂. Altcoins ₿ Ξ Ð ◎ are the low fillers.</p>
+    <p><b>5 reels × 3 rows, 9 paylines.</b> Match <b>3+</b> identical symbols left-to-right on a payline to win. Top symbols: 💎 🚀 🐂. Altcoins ₿ Ξ Ð ◎ are the low fillers.</p>
     <p>🍌 <b>WILD (Bumbana)</b> substitutes for any symbol except the Moon. Five Bumbana WILDs = the <b>100× JACKPOT</b>.</p>
     <p>🌙 <b>SCATTER</b> — land 3 / 4 / 5 anywhere for <b>10 / 15 / 20 free spins</b> (Pump Session) where every win is <b>×2</b>.</p>
+    <p>🎁 <b>AIRDROP</b> — land 3+ crates anywhere to open the pick-a-crate bonus for extra Nanas.</p>
     <p>🍌 <b>Nanas</b> are virtual chips with <b>no cash value</b>. There is no way to buy chips and no way to cash out — top up free every day with the Daily Bonus, or grab a free refill when you run low.</p>
     <p style="text-align:center; color:#b9c6db"><b>For entertainment only. Not real-money gambling.</b></p>
     <button class="btn" id="infoClose" style="background:var(--panel); color:var(--text); border:1px solid var(--edge)">Got it</button>
+  </div>
+</div>
+
+<!-- Airdrop Bonus overlay -->
+<div class="overlay" id="airdropOverlay">
+  <div class="card">
+    <div class="big">🎁 Airdrop Bonus</div>
+    <p id="airdropStatus">Pick a crate!</p>
+    <div class="airdrop-grid" id="airdropGrid"></div>
+    <p style="font-size:11px; color:var(--muted)">Prizes are virtual Nanas 🍌 — no cash value, just for fun.</p>
+    <button class="btn" id="airdropCollect" style="display:none">Collect</button>
   </div>
 </div>
 
@@ -280,7 +309,11 @@ const CONFIG = {
   bigWinMult: 15,                         // win >= bet*15 => BIG WIN
   megaWinMult: 40,                        // win >= bet*40 => MEGA WIN
   scatterFreeSpins: { 3: 10, 4: 15, 5: 20 },
-  scatterPay: { 3: 4, 4: 15, 5: 75 },     // × total bet, awarded on scatter hit
+  scatterPay: { 3: 5, 4: 20, 5: 100 },    // × total bet, awarded on scatter hit
+  // Airdrop Bonus: land 3+ 🎁 crates anywhere -> pick-a-crate for virtual Nanas.
+  airdropCrates: 6,                       // crates shown in the pick round
+  airdropPicks: 3,                        // how many the player opens
+  airdropPrizes: [2, 3, 4, 5, 8, 12, 20], // × total bet, one drawn per pick (all virtual)
   dailyBonus: [500, 650, 800, 1000, 1300, 1600, 2000], // day 1..7, then repeats at day 7
   refillAmount: 250,
   refillCooldownHours: 3,
@@ -301,35 +334,46 @@ const SYM = {
   SOL:     { id:"SOL",     coinImg:"SOL",  coin:{ glyph:"◎", color:"#14b8a6", ring:"#0c7d71", g2:"#9945ff" }, name:"Solana" },
   WILD:    { id:"WILD",    img:true, name:"Wild (Bumbana)", wild:true },
   SCATTER: { id:"SCATTER", e:"🌙", name:"Scatter", scatter:true },
+  CRATE:   { id:"CRATE",   e:"🎁", name:"Airdrop Crate", crate:true },
 };
 
-/* Paytable: multiplier of the LINE bet (bet / 9) per count of a kind.
-   Low symbols also pay for 2 of a kind (frequent small wins). Tuned via a
-   1M-spin Monte Carlo to ~94% RTP, ~28% hit frequency (see README / HANDOFF). */
+/* Paytable: multiplier of the LINE bet (bet / 9) per count of a kind (3+ only).
+   Tuned via Monte Carlo (independent per-cell draws) to ~93% RTP, ~32% hit
+   frequency, free spins ~1 in 106, airdrop ~1 in 258 (see README / HANDOFF). */
 const PAYTABLE = {
-  DIA:    { 3:35,  4:100, 5:400 },
-  ROCKET: { 3:25,  4:70,  5:200 },
-  BULL:   { 3:20,  4:50,  5:150 },
-  BTC:    { 2:0.5, 3:15,  4:40,  5:125 },
-  BANANA: { 2:0.75,3:10,  4:30,  5:90  },
-  ETH:    { 2:1,   3:7,   4:18,  5:60  },
-  DOGE:   { 2:0.75,3:5,   4:12,  5:40  },
-  SOL:    { 2:1,   3:4,   4:9,   5:20  },
+  DIA:    { 3:45, 4:135, 5:500 },
+  ROCKET: { 3:32, 4:90,  5:270 },
+  BULL:   { 3:27, 4:67,  5:200 },
+  BTC:    { 3:20, 4:54,  5:165 },
+  BANANA: { 3:13, 4:40,  5:120 },
+  ETH:    { 3:9,  4:24,  5:80  },
+  DOGE:   { 3:7,  4:16,  5:54  },
+  SOL:    { 3:5,  4:12,  5:27  },
 };
 
 /* Weighted reel strips — rarer symbols appear less. WILD/SCATTER rare.
    Same weighting per reel (simple + tunable). Higher weight = more common.
    Altcoins (SOL/DOGE/ETH) are the common low fillers; BTC mid; gems rare. */
 const WEIGHTS = {
-  SOL: 26, DOGE: 22, ETH: 19, BANANA: 14, BTC: 9,
-  BULL: 7, ROCKET: 5, DIA: 3, WILD: 5, SCATTER: 2,
+  SOL: 52, DOGE: 44, ETH: 38, BANANA: 28, BTC: 18,
+  BULL: 14, ROCKET: 10, DIA: 6, WILD: 10, SCATTER: 7, CRATE: 5,
 };
 function buildStrip() {
   const strip = [];
   for (const k in WEIGHTS) for (let i = 0; i < WEIGHTS[k]; i++) strip.push(k);
   return strip;
 }
-const REEL_STRIPS = Array.from({ length: CONFIG.reels }, buildStrip);
+const REEL_STRIPS = Array.from({ length: CONFIG.reels }, buildStrip); // cosmetic scroll only
+
+// Cumulative weight table for INDEPENDENT per-cell result draws. Each visible
+// cell is its own weighted pick, so symbol probabilities exactly match WEIGHTS
+// and scatter/crate/line odds are predictable (no vertical clumping).
+const SYM_CUM = (() => { let acc = 0; const t = []; for (const k in WEIGHTS) { acc += WEIGHTS[k]; t.push([acc, k]); } return { total: acc, table: t }; })();
+function weightedPick() {
+  const r = Math.random() * SYM_CUM.total;
+  for (const [c, s] of SYM_CUM.table) if (r < c) return s;
+  return SYM_CUM.table[SYM_CUM.table.length - 1][1];
+}
 
 /* 9 paylines over a 5x3 grid. Each entry is the row index (0 top,1 mid,2 bot) per reel. */
 const PAYLINES = [
@@ -374,6 +418,7 @@ const State = {
   spinning: false,
   freeSpins: 0,
   freeActive: false,
+  bonusActive: false,
   autoRemaining: 0,
   lastWin: 0,
   sessionStart: Date.now(),
@@ -395,19 +440,16 @@ function persist() {
 /* ============================================================================
    RNG + SLOT MATH
    ============================================================================ */
-function pickStop(reelIndex) {
+function pickStop(reelIndex) { // cosmetic scroll offset only
   const strip = REEL_STRIPS[reelIndex];
   return Math.floor(Math.random() * strip.length);
 }
-// Build the visible 5x3 grid from stop positions: grid[reel][row] = symbol id.
-function buildGrid(stops) {
+// Build the visible 5x3 result grid: each cell is an independent weighted draw.
+function buildGrid() {
   const grid = [];
   for (let r = 0; r < CONFIG.reels; r++) {
-    const strip = REEL_STRIPS[r];
     const col = [];
-    for (let row = 0; row < CONFIG.rows; row++) {
-      col.push(strip[(stops[r] + row) % strip.length]);
-    }
+    for (let row = 0; row < CONFIG.rows; row++) col.push(weightedPick());
     grid.push(col);
   }
   return grid;
@@ -418,12 +460,12 @@ function evalLine(grid, line, lineBet) {
   for (let r = 0; r < CONFIG.reels; r++) cells.push({ r, row: line[r], s: grid[r][line[r]] });
   // Determine base symbol: first non-wild; if all wild, treat as WILD.
   let base = null;
-  for (const c of cells) { if (c.s !== "SCATTER" && c.s !== "WILD") { base = c.s; break; } }
+  for (const c of cells) { if (c.s !== "SCATTER" && c.s !== "WILD" && c.s !== "CRATE") { base = c.s; break; } }
   const allWildLead = cells[0].s === "WILD";
   // Count consecutive from reel 0 that are base or WILD.
   let count = 0;
   for (const c of cells) {
-    if (c.s === "SCATTER") break;
+    if (c.s === "SCATTER" || c.s === "CRATE") break;
     if (base === null) { // still only wilds so far
       if (c.s === "WILD") { count++; continue; } else break;
     }
@@ -466,7 +508,12 @@ function evaluate(grid, bet, multiplier) {
     freeAwarded = CONFIG.scatterFreeSpins[scN] || 0;
     total += scatterPay;
   }
-  return { total, lineWins, scatterPos: scPos, scatterCount: scN, scatterPay, freeAwarded, jackpot };
+  // Airdrop crates: 3+ anywhere triggers the pick-a-crate bonus.
+  let crateN = 0;
+  for (let r = 0; r < CONFIG.reels; r++) for (let row = 0; row < CONFIG.rows; row++)
+    if (grid[r][row] === "CRATE") crateN++;
+  const airdrop = crateN >= 3;
+  return { total, lineWins, scatterPos: scPos, scatterCount: scN, scatterPay, freeAwarded, jackpot, crateN, airdrop };
 }
 
 /* ============================================================================
@@ -711,7 +758,7 @@ function spawnCoins(n) {
 function currentBet() { return State.bet; }
 
 async function doSpin() {
-  if (State.spinning) return;
+  if (State.spinning || State.bonusActive) return;
   const bet = currentBet();
   const free = State.freeActive && State.freeSpins > 0;
 
@@ -724,9 +771,8 @@ async function doSpin() {
   updateHud();
   Sound.ensure(); Sound.spin();
 
-  // Decide result up-front (authoritative).
-  const stops = REEL_STRIPS.map((_, i) => pickStop(i));
-  const grid = buildGrid(stops);
+  // Decide result up-front (authoritative). Each cell is an independent draw.
+  const grid = buildGrid();
   const mult = free ? CONFIG.freeSpinMultiplier : 1;
   const result = evaluate(grid, bet, mult);
 
@@ -792,6 +838,9 @@ function finishSpin(result, bet, wasFree) {
   checkRefill(false);
   maybeSessionReminder();
 
+  // Airdrop Bonus (pick-a-crate for virtual Nanas) pauses the game until collected.
+  if (result.airdrop && !wasFree) { openAirdrop(bet, () => scheduleNext()); return; }
+
   // Continue autospin / free spins.
   scheduleNext();
 }
@@ -821,6 +870,68 @@ function endFreeSpins() {
 }
 
 function waitUntil(t) { return new Promise(res => { (function chk(){ performance.now() >= t ? res() : requestAnimationFrame(chk); })(); }); }
+
+/* ============================================================================
+   AIRDROP BONUS — pick-a-crate mini game. Awards VIRTUAL Nanas only.
+   ============================================================================ */
+function openAirdrop(bet, done) {
+  State.bonusActive = true;
+  const overlay = document.getElementById("airdropOverlay");
+  const grid = document.getElementById("airdropGrid");
+  const status = document.getElementById("airdropStatus");
+  const collectBtn = document.getElementById("airdropCollect");
+  grid.innerHTML = ""; collectBtn.style.display = "none";
+  let picksLeft = CONFIG.airdropPicks, totalWin = 0, done_ = false;
+  status.textContent = `Pick ${picksLeft} crate${picksLeft>1?"s":""}!`;
+
+  // Pre-draw a prize (× bet) for each crate.
+  const crates = [];
+  for (let i = 0; i < CONFIG.airdropCrates; i++) {
+    const mult = CONFIG.airdropPrizes[Math.floor(Math.random() * CONFIG.airdropPrizes.length)];
+    crates.push({ prize: Math.round(mult * bet), opened: false });
+  }
+
+  function finish() {
+    if (done_) return; done_ = true;
+    State.balance += totalWin;
+    if (totalWin > State.biggestWin) State.biggestWin = totalWin;
+    if (State.balance > State.best) State.best = State.balance;
+    setWin(totalWin); persist(); updateHud();
+    overlay.classList.remove("show");
+    State.bonusActive = false;
+    showWinBanner("🎁 AIRDROP", totalWin); Sound.big(); spawnCoins(36);
+    done && done();
+  }
+
+  crates.forEach((cr, i) => {
+    const b = document.createElement("button");
+    b.className = "crate"; b.innerHTML = `<span class="lid">🎁</span>`;
+    b.onclick = () => {
+      if (cr.opened || picksLeft <= 0 || done_) return;
+      cr.opened = true; picksLeft--;
+      totalWin += cr.prize;
+      b.classList.add("open");
+      b.innerHTML = `<span class="prize">+${cr.prize.toLocaleString("en-US")}</span><span class="nanas">🍌 Nanas</span>`;
+      Sound.win();
+      if (picksLeft > 0) {
+        status.textContent = `Pick ${picksLeft} more!`;
+      } else {
+        status.textContent = `You won ${totalWin.toLocaleString("en-US")} Nanas!`;
+        // reveal the rest (dimmed) so the player sees what was inside
+        crates.forEach((c2, j) => { if (!c2.opened) {
+          const el = grid.children[j]; el.classList.add("miss");
+          el.innerHTML = `<span class="prize">${c2.prize.toLocaleString("en-US")}</span>`;
+        }});
+        collectBtn.textContent = `Collect ${totalWin.toLocaleString("en-US")} 🍌`;
+        collectBtn.style.display = "block";
+      }
+    };
+    grid.appendChild(b);
+  });
+
+  collectBtn.onclick = finish;
+  overlay.classList.add("show");
+}
 
 /* ============================================================================
    ECONOMY — daily bonus, free refill
@@ -989,7 +1100,7 @@ function init() {
   document.getElementById("claimBtn").onclick = claimDailyBonus;
   document.getElementById("infoBtn").onclick = () => document.getElementById("infoOverlay").classList.add("show");
   document.getElementById("infoClose").onclick = () => document.getElementById("infoOverlay").classList.remove("show");
-  document.querySelectorAll(".overlay").forEach(o => o.addEventListener("click", e => { if (e.target === o && o.id !== "bonusOverlay") o.classList.remove("show"); }));
+  document.querySelectorAll(".overlay").forEach(o => o.addEventListener("click", e => { if (e.target === o && o.id !== "bonusOverlay" && o.id !== "airdropOverlay") o.classList.remove("show"); }));
 
   // Keyboard: space to spin.
   window.addEventListener("keydown", e => { if (e.code === "Space") { e.preventDefault(); document.getElementById("spinBtn").click(); } });

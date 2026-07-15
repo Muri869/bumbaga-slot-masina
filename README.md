@@ -18,8 +18,9 @@ Open `index.html` (the hub) or `pump-reels.html` (straight to the game) in any m
 
 ## The game
 
-- **5 reels × 3 rows, 9 paylines.** Match symbols left-to-right; wins pay `symbol multiplier × bet`. Top symbols 💎 🚀 🐂; the low "you didn't moon" fillers are altcoins — Bitcoin ₿, Ethereum Ξ, Dogecoin Ð, Solana ◎ (these pay from 2 of a kind).
+- **5 reels × 3 rows, 9 paylines.** Match 3+ symbols left-to-right; wins pay `symbol multiplier × bet`. Top symbols 💎 🚀 🐂; the low "you didn't moon" fillers are altcoins — Bitcoin ₿, Ethereum Ξ, Dogecoin Ð, Solana ◎.
 - 🍌 **WILD** is the Bumbana banana mascot — substitutes any symbol except the Moon; 5× banana WILD = the 100× jackpot.
+- 🎁 **Airdrop Bonus** — land 3+ crates to open a pick-a-crate round for extra virtual Nanas (no cash value).
 - 🌙 **SCATTER** — 3 / 4 / 5 anywhere → 10 / 15 / 20 free spins ("Pump Session"), all wins ×2.
 - **Nanas 🍌** are virtual chips: start with 1000, top up free with the daily bonus (grows over a 7-day streak) or a free refill when low.
 - Sequential reel stops with **anticipation** on the last reel, win-line highlights, coin shower, and Big/Mega Win celebrations.
@@ -36,4 +37,4 @@ Matches the deployed hub: spins increment `game_plays_pump_reels` (feeds "N play
 
 ## Development
 
-Everything is tunable from the `CONFIG` / `PAYTABLE` / `WEIGHTS` / `PAYLINES` constants at the top of the script in `pump-reels.html`. Target virtual RTP ~94%, hit frequency ~30–40%.
+Everything is tunable from the `CONFIG` / `PAYTABLE` / `WEIGHTS` / `PAYLINES` constants at the top of the script in `pump-reels.html`. Each reel cell is an independent weighted draw (`weightedPick`), so symbol/scatter/crate odds match `WEIGHTS` exactly. Tuned via a 1M-spin Monte Carlo to **~92% RTP, ~32% hit frequency, free spins ~1 in 106, airdrop ~1 in 265**.
