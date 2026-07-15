@@ -47,3 +47,6 @@ montage.txt
 xrp.txt
 mobile.png
 vegas.png
+
+# Packaged deliverable
+*.zip
