@@ -38,3 +38,12 @@ Thumbs.db
 
 # Temp scratch images
 _*.png
+
+# scratch/temp artifacts
+*.json.tmp
+logos*.json
+coins.json
+montage.txt
+xrp.txt
+mobile.png
+vegas.png
