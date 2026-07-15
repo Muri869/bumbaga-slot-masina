@@ -7,16 +7,16 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <title>Bumbana Games Hub</title>
-<meta name="description" content="Pick a game — Chart Jumper, Chart Runner, Coconat Island, Bull Swing, Pump Reels. Bumbana arcade on mobile." />
+<meta name="description" content="Pick a game — Chart Jumper, Chart Runner, Coconat Island, Bull Swing, Bumbana. Bumbana arcade on mobile." />
 <link rel="icon" type="image/png" href="assets/bumbana_logo.png" />
 <style>
   /* ============================================================
      Bumbana Games Hub — LOCAL PREVIEW.
      Recreates the deployed hub (bumbana-racer.pages.dev) using the real
-     scraped card art + mascot, so the new Pump Reels card can be seen &
+     scraped card art + mascot, so the new Bumbana card can be seen &
      tested. Not the production hub (a React+Supabase app owned by the friend).
-     Existing-game play counts mirror the live snapshot; Pump Reels is live
-     from localStorage game_plays_pump_reels.
+     Existing-game play counts mirror the live snapshot; Bumbana is live
+     from localStorage game_plays_bumbana.
      ============================================================ */
   :root {
     --bg: #0b0f1a; --panel: #121826; --panel-2: #0e1420; --edge: #1f2a3c;
@@ -78,13 +78,13 @@
 <script>
 "use strict";
 // Live snapshot of the deployed hub for existing games (real scraped art).
-// Pump Reels reads its real local counter so the card updates as you play.
+// Bumbana reads its real local counter so the card updates as you play.
 const GAMES = [
   { slug:"chart-jumper",   title:"Chart Jumper",   tag:"Jump the chart. Dodge liquidation.", best:77, plays:204, img:"assets/games/chart-jumper.png",   href:"https://bumbana-racer.pages.dev/" },
   { slug:"chart-runner",   title:"Chart Runner",   tag:"Ride the chart. Outrun the liq wall.", best:null, plays:78, img:"assets/games/chart-runner.png",   href:"https://bumbana-racer.pages.dev/" },
   { slug:"coconat-island", title:"Coconat Island", tag:"Orbit the island. Grab the coins.", best:12, plays:98, img:"assets/games/coconat-island.png", href:"https://bumbana-racer.pages.dev/" },
   { slug:"bull-swing",     title:"Bull Swing",     tag:"Swing the candles. Climb the chart.", best:null, plays:44, img:"assets/games/bull-swing.png",     href:"https://bumbana-racer.pages.dev/" },
-  { slug:"pump-reels",     title:"Pump Reels",     tag:"Spin the reels. Stack the bananas.", best:null, plays:0, art:"reels", href:"pump-reels.html", isNew:true, live:true },
+  { slug:"bumbana",     title:"Bumbana",     tag:"Spin the reels. Stack the bananas.", best:null, plays:0, art:"reels", href:"bumbana.html", isNew:true, live:true },
 ];
 
 function localPlays(slug) {
@@ -92,7 +92,7 @@ function localPlays(slug) {
   return isNaN(n) ? 0 : n;
 }
 
-// Canvas art for the new Pump Reels card (no real illustration exists yet):
+// Canvas art for the new Bumbana card (no real illustration exists yet):
 // a mini slot showing the banana mascot + crypto coins, on theme.
 function drawReelsArt(cnv) {
   const c = cnv.getContext("2d"); const W = cnv.width, H = cnv.height;

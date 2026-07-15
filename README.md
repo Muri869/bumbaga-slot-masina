@@ -1,6 +1,6 @@
-# Bumbana Games Hub — Pump Reels
+# Bumbana — free-play slot for the Bumbana Games Hub
 
-**Pump Reels** — a free-play social-casino slot machine game built for the [Bumbana Games Hub](https://bumbana-racer.pages.dev/).
+**Bumbana** — a free-play social-casino slot machine game built for the [Bumbana Games Hub](https://bumbana-racer.pages.dev/).
 
 > Spin the reels. Stack the bananas. 🍌🎰
 
@@ -8,13 +8,13 @@
 
 | File | What it is |
 |---|---|
-| `pump-reels.html` | **The game.** One self-contained file — no libraries, no build, no images (canvas + emoji). Open it in a browser and play. |
-| `index.html` | **Local hub preview** — recreates the live hub design so the Pump Reels card can be seen and tested. Not the production hub. |
+| `bumbana.html` | **The game.** One self-contained file — no libraries, no build, no images (canvas + emoji). Open it in a browser and play. |
+| `index.html` | **Local hub preview** — recreates the live hub design so the Bumbana card can be seen and tested. Not the production hub. |
 | `HANDOFF.md` | Integration notes for the hub owner (storage keys, publishing, Supabase wiring, tuning). |
 
 ## Play locally
 
-Open `index.html` (the hub) or `pump-reels.html` (straight to the game) in any modern browser. No server needed.
+Open `index.html` (the hub) or `bumbana.html` (straight to the game) in any modern browser. No server needed.
 
 ## The game
 
@@ -34,8 +34,8 @@ No real money, no crypto, no chip purchases, no deposits, no cash-out. The daily
 
 ## Conventions
 
-Matches the deployed hub: spins increment `game_plays_pump_reels` (feeds "N plays across all games"); slug `pump-reels`; game-local state under the `pumpreels:` namespace. See `HANDOFF.md` for details.
+Matches the deployed hub: spins increment `game_plays_bumbana` (feeds "N plays across all games"); slug `bumbana`; game-local state under the `bumbana:` namespace. See `HANDOFF.md` for details.
 
 ## Development
 
-Everything is tunable from the `CONFIG` / `PAYTABLE` / `WEIGHTS` / `PAYLINES` constants at the top of the script in `pump-reels.html`. Each reel cell is an independent weighted draw (`weightedPick`), so symbol/scatter/crate odds match `WEIGHTS` exactly. Tuned via a 1M-spin Monte Carlo to **~92% RTP, ~32% hit frequency, free spins ~1 in 106, airdrop ~1 in 265**.
+Everything is tunable from the `CONFIG` / `PAYTABLE` / `WEIGHTS` / `PAYLINES` constants at the top of the script in `bumbana.html`. Each reel cell is an independent weighted draw (`weightedPick`), so symbol/scatter/crate odds match `WEIGHTS` exactly. Tuned via a 1M-spin Monte Carlo to **~92% RTP, ~32% hit frequency, free spins ~1 in 106, airdrop ~1 in 265**.

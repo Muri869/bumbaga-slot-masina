@@ -9,11 +9,11 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<title>Pump Reels — Bumbana Games Hub</title>
-<meta name="description" content="Pump Reels — spin the reels, stack the bananas. Free-play social casino slot. Virtual chips, no cash value." />
+<title>Bumbana — Free-play Slot</title>
+<meta name="description" content="Bumbana — spin the reels, stack the bananas. Free-play social casino slot. Virtual chips, no cash value." />
 <style>
   /* ============================================================
-     Pump Reels — free-play social-casino slot for Bumbana Games Hub
+     Bumbana — free-play social-casino slot for Bumbana Games Hub
      Single self-contained file. No external libraries. No images.
      Canvas + emoji rendering. Tune everything via CONFIG below.
      ============================================================ */
@@ -226,7 +226,7 @@
     <div class="brand">
       <canvas class="mascot" id="mascot" width="68" height="68" aria-hidden="true"></canvas>
       <div>
-        <h1>Pump Reels</h1>
+        <h1>Bumbana</h1>
         <small>Spin the reels. Stack the bananas.</small>
       </div>
     </div>
@@ -286,7 +286,7 @@
 <!-- Info overlay -->
 <div class="overlay" id="infoOverlay">
   <div class="card" style="text-align:left; max-width:420px;">
-    <h2 style="text-align:center">How Pump Reels works</h2>
+    <h2 style="text-align:center">How Bumbana works</h2>
     <p><b>5 reels × 3 rows, 9 paylines.</b> Match <b>3+</b> identical crypto coins left-to-right on a payline to win. Highest pay: <b>Bitcoin</b> → Ethereum → BNB → Solana; the low fillers are XRP, Cardano, Dogecoin & Shiba.</p>
     <p>🍌 <b>WILD (Bumbana)</b> substitutes for any symbol except the Moon. Five Bumbana WILDs = the <b>100× JACKPOT</b>.</p>
     <p>🌙 <b>SCATTER</b> — land 3 / 4 / 5 anywhere for <b>10 / 15 / 20 free spins</b> (Pump Session) where every win is <b>×2</b>.</p>
@@ -318,9 +318,9 @@
    rarer big wins) so balance drains slowly and drives the daily free bonus.
    ============================================================================ */
 const CONFIG = {
-  gameSlug: "pump-reels",
-  playsKey: "game_plays_pump_reels",     // hub aggregate: game_plays_<slug_underscored>
-  storePrefix: "pumpreels:",             // game-local state namespace
+  gameSlug: "bumbana",
+  playsKey: "game_plays_bumbana",        // hub aggregate: game_plays_<slug_underscored>
+  storePrefix: "bumbana:",               // game-local state namespace
   startingBalance: 1000,
   betOptions: [10, 25, 50, 100],
   reels: 5,
@@ -418,7 +418,7 @@ const LINE_COLORS = ["#f4c542","#22c55e","#38bdf8","#a855f7","#ef4444","#fb923c"
 const Store = {
   gGet(k, d) { try { const v = localStorage.getItem(CONFIG.storePrefix + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
   gSet(k, v) { try { localStorage.setItem(CONFIG.storePrefix + k, JSON.stringify(v)); } catch {} },
-  // Hub-shared plays: integer under game_plays_pump_reels (sums into "N plays across all games").
+  // Hub-shared plays: integer under game_plays_bumbana (sums into "N plays across all games").
   getPlays() { const n = parseInt(localStorage.getItem(CONFIG.playsKey) || "0", 10); return isNaN(n) ? 0 : n; },
   incPlays() { const n = this.getPlays() + 1; try { localStorage.setItem(CONFIG.playsKey, String(n)); } catch {} return n; },
 };
