@@ -245,7 +245,7 @@
 
   <div class="slot" id="slot">
     <div class="bulbs"></div>
-    <div class="freebanner" id="freeBanner">🌙 PUMP SESSION ×2 · <span id="freeCount">0</span> left</div>
+    <div class="freebanner" id="freeBanner">🚀 PUMP SESSION ×2 · <span id="freeCount">0</span> left</div>
     <canvas id="reels" width="720" height="440"></canvas>
   </div>
 
@@ -288,9 +288,9 @@
   <div class="card" style="text-align:left; max-width:420px;">
     <h2 style="text-align:center">How Bumbana works</h2>
     <p><b>5 reels × 3 rows, 9 paylines.</b> Match <b>3+</b> identical crypto coins left-to-right on a payline to win. Highest pay: <b>Bitcoin</b> → Ethereum → BNB → Solana; the low fillers are XRP, Cardano, Dogecoin & Shiba.</p>
-    <p>🍌 <b>WILD (Bumbana)</b> substitutes for any symbol except the Moon. Five Bumbana WILDs = the <b>100× JACKPOT</b>.</p>
-    <p>🌙 <b>SCATTER</b> — land 3 / 4 / 5 anywhere for <b>10 / 15 / 20 free spins</b> (Pump Session) where every win is <b>×2</b>.</p>
-    <p>🎁 <b>AIRDROP</b> — land 3+ crates anywhere to open the pick-a-crate bonus for extra Nanas.</p>
+    <p>🍌 <b>WILD (Bumbana)</b> substitutes for any coin except the 🚀 Scatter and 🪂 Airdrop. Five Bumbana WILDs = the <b>100× JACKPOT</b>.</p>
+    <p>🚀 <b>SCATTER</b> — land 3 / 4 / 5 anywhere for <b>10 / 15 / 20 free spins</b> (Pump Session) where every win is <b>×2</b>.</p>
+    <p>🪂 <b>AIRDROP</b> — land 3+ anywhere to open the pick-a-crate bonus for extra Nanas.</p>
     <p>🍌 <b>Nanas</b> are virtual chips with <b>no cash value</b>. There is no way to buy chips and no way to cash out — top up free every day with the Daily Bonus, or grab a free refill when you run low.</p>
     <p style="text-align:center; color:#b9c6db"><b>For entertainment only. Not real-money gambling.</b></p>
     <button class="btn" id="infoClose" style="background:var(--panel); color:var(--text); border:1px solid var(--edge)">Got it</button>
@@ -354,8 +354,8 @@ const SYM = {
   DOGE:    { id:"DOGE", name:"Dogecoin",  coin:{ color:"#d4b73e", g2:"#f6e59a", ring:"#987d1c", glyph:"Ð" } },
   SHIB:    { id:"SHIB", name:"Shiba Inu", coin:{ color:"#e21a05", g2:"#ff9070", ring:"#9a0f00", glyph:"🐕" } },
   WILD:    { id:"WILD", img:true, name:"Wild (Bumbana)", wild:true },
-  SCATTER: { id:"SCATTER", e:"🌙", name:"Scatter", scatter:true },
-  CRATE:   { id:"CRATE",   e:"🎁", name:"Airdrop Crate", crate:true },
+  SCATTER: { id:"SCATTER", name:"Scatter (Pump)",  scatter:true, coin:{ color:"#f4c542", g2:"#fff2b8", ring:"#a9780a", glyph:"🚀" } },
+  CRATE:   { id:"CRATE",   name:"Airdrop",         crate:true,   coin:{ color:"#2bb673", g2:"#8ff0c4", ring:"#146a4a", glyph:"🪂" } },
 };
 
 /* Paytable: multiplier of the LINE bet (bet / 9) per count of a kind (3+ only).
@@ -995,7 +995,7 @@ function startFreeSpins(n, scN) {
   State.freeActive = true; State.freeSpins = n;
   document.getElementById("slot").classList.add("freemode");
   updateFreeBanner();
-  showWinBanner("🌙 PUMP SESSION!", n + " FREE SPINS");
+  showWinBanner("🚀 PUMP SESSION!", n + " FREE SPINS");
   Sound.big(); Music.setIntense(true);
   setTimeout(() => { if (State.freeActive) doSpin(); }, 1400);
 }
@@ -1037,7 +1037,7 @@ function openAirdrop(bet, done) {
     setWin(totalWin); persist(); updateHud();
     overlay.classList.remove("show");
     State.bonusActive = false;
-    showWinBanner("🎁 AIRDROP", totalWin); Sound.big(); spawnCoins(36);
+    showWinBanner("🪂 AIRDROP", totalWin); Sound.big(); spawnCoins(36);
     done && done();
   }
 
