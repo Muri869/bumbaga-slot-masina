@@ -35,3 +35,6 @@ Thumbs.db
 
 # Playwright test output
 .playwright-mcp/
+
+# Temp scratch images
+_*.png
