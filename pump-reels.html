@@ -684,10 +684,19 @@ function layout() {
   GRIDX = PAD; GRIDY = (ch - ROWH * CONFIG.rows) / 2;
 }
 
+// Attract screen shown before the first spin — Bumbana banana across the
+// middle row, crypto around it (not a wall of one coin).
+const IDLE_GRID = [
+  ["BTC","WILD","SHIB"],
+  ["ETH","WILD","DOGE"],
+  ["BNB","WILD","XRP"],
+  ["SOL","WILD","ADA"],
+  ["ADA","WILD","BTC"],
+];
 // Reel visual model.
 const reelView = REEL_STRIPS.map((strip, i) => ({
   strip, offset: 0, speed: 0, spinning: false, stopAt: 0, stopped: true,
-  result: ["SOL","SOL","SOL"], scroll: strip.slice(),
+  result: IDLE_GRID[i].slice(), scroll: strip.slice(),
 }));
 
 let winFlash = { lines: [], t: 0 };       // winning lines to highlight
@@ -872,11 +881,26 @@ function currentBet() { return State.bet; }
 
 async function doSpin() {
   if (State.spinning || State.bonusActive) return;
-  const bet = currentBet();
+  let bet = currentBet();
   const free = State.freeActive && State.freeSpins > 0;
 
   if (!free) {
-    if (State.balance < bet) { checkRefill(true); toast("Not enough Nanas — grab a free refill or daily bonus!"); return; }
+    // Never soft-lock: if the current bet is unaffordable, drop to the highest
+    // affordable bet; if even the minimum is out of reach, give a free top-up.
+    if (State.balance < bet) {
+      const affordable = CONFIG.betOptions.filter(b => b <= State.balance);
+      if (affordable.length) {
+        bet = State.bet = affordable[affordable.length - 1];
+        renderBets(); updateHud();
+        toast(`Bet lowered to ${bet} 🍌`);
+      } else {
+        State.balance += CONFIG.refillAmount; State.lastRefill = Date.now();
+        bet = State.bet = CONFIG.betOptions[0];
+        renderBets(); updateHud(); persist();
+        showWinBanner("🍌 FREE REFILL", "+" + CONFIG.refillAmount);
+        checkRefill(false);
+      }
+    }
     State.balance -= bet;
   }
   State.spinning = true;
