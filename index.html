@@ -8,19 +8,19 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <title>Bumbana Games Hub</title>
 <meta name="description" content="Pick a game — Chart Jumper, Chart Runner, Coconat Island, Bull Swing, Pump Reels. Bumbana arcade on mobile." />
+<link rel="icon" type="image/png" href="assets/bumbana_logo.png" />
 <style>
   /* ============================================================
      Bumbana Games Hub — LOCAL PREVIEW.
-     Recreates the deployed hub (bumbana-racer.pages.dev) so the new
-     Pump Reels card can be seen & tested before hand-off. Not the
-     production hub (that is a React+Supabase app owned by the friend).
-     Existing-game play counts mirror the live snapshot; Pump Reels is
-     live from localStorage game_plays_pump_reels.
+     Recreates the deployed hub (bumbana-racer.pages.dev) using the real
+     scraped card art + mascot, so the new Pump Reels card can be seen &
+     tested. Not the production hub (a React+Supabase app owned by the friend).
+     Existing-game play counts mirror the live snapshot; Pump Reels is live
+     from localStorage game_plays_pump_reels.
      ============================================================ */
   :root {
-    --bg: #0b0f1a; --panel: #121826; --edge: #1f2a3c;
-    --gold: #f4c542; --green: #22c55e; --red: #ef4444;
-    --text: #e8eef7; --muted: #8aa0bd;
+    --bg: #0b0f1a; --panel: #121826; --panel-2: #0e1420; --edge: #1f2a3c;
+    --gold: #f4c542; --green: #22c55e; --text: #e8eef7; --muted: #8aa0bd;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text);
@@ -28,27 +28,33 @@
   body { display: flex; flex-direction: column; align-items: center; padding: 28px 16px 48px; }
 
   .hero { text-align: center; margin-bottom: 30px; }
-  .hero canvas { width: 96px; height: 96px; }
+  .hero img { width: 96px; height: 96px; object-fit: contain; }
   .hero h1 { font-size: 30px; margin: 10px 0 4px; letter-spacing: .3px; }
   .hero p { color: var(--muted); margin: 0; font-size: 15px; }
 
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px;
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px;
     width: 100%; max-width: 1120px; }
-  @media (max-width: 680px) { .grid { grid-template-columns: 1fr; } }
+  @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
 
   .card { position: relative; background: var(--panel); border: 1px solid var(--edge);
-    border-radius: 18px; padding: 18px; min-height: 210px; overflow: hidden;
-    display: flex; flex-direction: column; text-decoration: none; color: inherit; }
-  .card h2 { margin: 0 0 4px; font-size: 21px; }
-  .card .tag { color: var(--muted); font-size: 13.5px; margin: 0 0 8px; line-height: 1.4; max-width: 62%; }
-  .card .meta { color: var(--gold); font-weight: 800; font-size: 13.5px; }
-  .card .meta .best { color: var(--gold); }
-  .art { position: absolute; right: 14px; top: 14px; width: 130px; height: 96px; }
-  .play { position: absolute; right: 16px; bottom: 16px; background: var(--green); color: #06210f;
+    border-radius: 18px; min-height: 205px; overflow: hidden;
+    text-decoration: none; color: inherit; display: block; }
+  /* Real card art fills the right side, bleeding to the edges. */
+  .card .art { position: absolute; top: 0; right: 0; height: 100%; width: 66%;
+    object-fit: cover; object-position: center; z-index: 0; }
+  /* Gradient keeps the left-side text readable over the art. */
+  .card::before { content: ""; position: absolute; inset: 0; z-index: 1;
+    background: linear-gradient(90deg, var(--panel) 30%, rgba(18,24,38,.72) 52%, rgba(18,24,38,0) 78%); }
+  .card .body { position: relative; z-index: 2; padding: 18px; }
+  .card h2 { margin: 0 0 5px; font-size: 21px; text-shadow: 0 2px 12px rgba(0,0,0,.6); }
+  .card .tag { color: #cdd8e8; font-size: 13.5px; margin: 0 0 9px; line-height: 1.4; max-width: 56%;
+    text-shadow: 0 2px 10px rgba(0,0,0,.7); }
+  .card .meta { color: var(--gold); font-weight: 800; font-size: 13.5px; text-shadow: 0 2px 10px rgba(0,0,0,.7); }
+  .play { position: absolute; right: 16px; bottom: 16px; z-index: 3; background: var(--green); color: #06210f;
     border: none; border-radius: 999px; padding: 9px 20px; font-weight: 800; font-size: 13px;
-    cursor: pointer; text-decoration: none; transition: transform .08s, filter .15s; }
+    text-decoration: none; transition: transform .08s, filter .15s; box-shadow: 0 6px 16px rgba(0,0,0,.4); }
   .play:active { transform: scale(.95); }
-  .card.new::after { content: "NEW"; position: absolute; left: 16px; top: 14px;
+  .card.new .badge { position: absolute; left: 16px; top: 14px; z-index: 3;
     background: var(--gold); color: #3a2a00; font-size: 10px; font-weight: 800; letter-spacing: 1px;
     padding: 2px 8px; border-radius: 999px; }
   .card.new h2 { margin-top: 20px; }
@@ -59,7 +65,7 @@
 </head>
 <body>
   <div class="hero">
-    <canvas id="mascot" width="192" height="192" aria-hidden="true"></canvas>
+    <img src="assets/bumbana_logo.png" alt="Bumbana mascot" width="96" height="96" />
     <h1>Bumbana Games Hub</h1>
     <p>Pick a game</p>
   </div>
@@ -71,13 +77,13 @@
 
 <script>
 "use strict";
-// Live snapshot of the deployed hub (bumbana-racer.pages.dev) for existing games.
+// Live snapshot of the deployed hub for existing games (real scraped art).
 // Pump Reels reads its real local counter so the card updates as you play.
 const GAMES = [
-  { slug:"chart-jumper",   title:"Chart Jumper",   tag:"Jump the chart. Dodge liquidation.", best:77, plays:204, art:"jumper", href:"https://bumbana-racer.pages.dev/" },
-  { slug:"chart-runner",   title:"Chart Runner",   tag:"Ride the chart. Outrun the liq wall.", best:null, plays:78, art:"runner", href:"https://bumbana-racer.pages.dev/" },
-  { slug:"coconat-island", title:"Coconat Island", tag:"Orbit the island. Grab the coins.", best:12, plays:98, art:"island", href:"https://bumbana-racer.pages.dev/" },
-  { slug:"bull-swing",     title:"Bull Swing",     tag:"Swing the candles. Climb the chart.", best:null, plays:44, art:"bull", href:"https://bumbana-racer.pages.dev/" },
+  { slug:"chart-jumper",   title:"Chart Jumper",   tag:"Jump the chart. Dodge liquidation.", best:77, plays:204, img:"assets/games/chart-jumper.png",   href:"https://bumbana-racer.pages.dev/" },
+  { slug:"chart-runner",   title:"Chart Runner",   tag:"Ride the chart. Outrun the liq wall.", best:null, plays:78, img:"assets/games/chart-runner.png",   href:"https://bumbana-racer.pages.dev/" },
+  { slug:"coconat-island", title:"Coconat Island", tag:"Orbit the island. Grab the coins.", best:12, plays:98, img:"assets/games/coconat-island.png", href:"https://bumbana-racer.pages.dev/" },
+  { slug:"bull-swing",     title:"Bull Swing",     tag:"Swing the candles. Climb the chart.", best:null, plays:44, img:"assets/games/bull-swing.png",     href:"https://bumbana-racer.pages.dev/" },
   { slug:"pump-reels",     title:"Pump Reels",     tag:"Spin the reels. Stack the bananas.", best:null, plays:0, art:"reels", href:"pump-reels.html", isNew:true, live:true },
 ];
 
@@ -86,51 +92,49 @@ function localPlays(slug) {
   return isNaN(n) ? 0 : n;
 }
 
-function drawMascot(cnv) {
+// Canvas art for the new Pump Reels card (no real illustration exists yet):
+// a mini slot showing the banana mascot + crypto coins, on theme.
+function drawReelsArt(cnv) {
   const c = cnv.getContext("2d"); const W = cnv.width, H = cnv.height;
-  c.clearRect(0,0,W,H); c.save(); c.translate(W/2, H/2 + 6); c.scale(2.6,2.6);
-  c.fillStyle = "#f4c542"; c.strokeStyle = "#c99a1f"; c.lineWidth = 2;
-  c.beginPath(); c.ellipse(0, 6, 15, 22, 0, 0, Math.PI*2); c.fill(); c.stroke();
-  c.fillStyle = "#0b0f1a";
-  (c.roundRect ? c.roundRect(-11,-4,9,6,2) : c.rect(-11,-4,9,6)); c.fill();
-  c.beginPath(); (c.roundRect ? c.roundRect(2,-4,9,6,2) : c.rect(2,-4,9,6)); c.fill();
-  c.strokeStyle = "#0b0f1a"; c.beginPath(); c.moveTo(-2,-1); c.lineTo(2,-1); c.stroke();
-  c.fillStyle = "#7a5230"; c.beginPath(); c.ellipse(0,-14,16,4,0,0,Math.PI*2); c.fill();
-  c.fillStyle = "#8a5f38"; (c.roundRect ? c.roundRect(-10,-24,20,12,3) : c.rect(-10,-24,20,12)); c.fill();
-  c.fillStyle = "#5e3f24"; c.fillRect(-10,-16,20,3); c.restore();
+  c.clearRect(0,0,W,H);
+  c.fillStyle = "#0b1220"; c.fillRect(0,0,W,H);
+  // subtle gold glow
+  const g = c.createRadialGradient(W*0.62, H*0.5, 10, W*0.62, H*0.5, W*0.5);
+  g.addColorStop(0,"rgba(244,197,66,.18)"); g.addColorStop(1,"rgba(244,197,66,0)");
+  c.fillStyle = g; c.fillRect(0,0,W,H);
+  // slot frame
+  const fx=W*0.30, fy=H*0.26, fw=W*0.64, fh=H*0.48;
+  c.fillStyle="#070b14"; roundRect(c,fx,fy,fw,fh,12); c.fill();
+  c.lineWidth=2; c.strokeStyle="rgba(244,197,66,.5)"; roundRect(c,fx,fy,fw,fh,12); c.stroke();
+  // three cells: banana, ₿, 💎
+  const cw=fw/3, cy=fy+fh/2, sz=fh*0.62;
+  if (bananaReady) c.drawImage(bananaImg, fx+cw*0.5-sz/2, cy-sz/2, sz, sz);
+  // bitcoin coin
+  drawCoin(c, fx+cw*1.5, cy, sz*0.9, "#f7931a", "#b76a0d", "₿");
+  // diamond emoji
+  c.font = `${sz*0.82}px system-ui, "Apple Color Emoji"`; c.textAlign="center"; c.textBaseline="middle";
+  c.fillText("💎", fx+cw*2.5, cy);
+  // small ETH/DOGE coins floating
+  drawCoin(c, W*0.16, H*0.30, H*0.16, "#627eea", "#3c55b4", "Ξ");
+  drawCoin(c, W*0.20, H*0.72, H*0.15, "#c2a633", "#8f7a1e", "Ð");
+}
+function roundRect(c,x,y,w,h,r){ c.beginPath();
+  if(c.roundRect){c.roundRect(x,y,w,h,r);return;}
+  c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();
+}
+function drawCoin(c,cx,cy,size,color,ring,glyph){
+  const r=size*0.44; c.save();
+  const grad=c.createRadialGradient(cx-r*0.3,cy-r*0.35,r*0.2,cx,cy,r);
+  grad.addColorStop(0,"#fff"); grad.addColorStop(0.18,color); grad.addColorStop(1,ring);
+  c.fillStyle=grad; c.beginPath(); c.arc(cx,cy,r,0,Math.PI*2); c.fill();
+  c.lineWidth=Math.max(2,size*0.05); c.strokeStyle=ring; c.beginPath(); c.arc(cx,cy,r,0,Math.PI*2); c.stroke();
+  c.fillStyle="#fff"; c.font=`800 ${size*0.5}px -apple-system, system-ui, "Segoe UI Symbol"`;
+  c.textAlign="center"; c.textBaseline="middle"; c.fillText(glyph,cx,cy); c.restore();
 }
 
-// Small per-card art drawn on canvas (no image files), echoing each game's vibe.
-function drawArt(cnv, kind) {
-  const c = cnv.getContext("2d"); const W = cnv.width, H = cnv.height; c.clearRect(0,0,W,H);
-  const green = "#22c55e", red = "#ef4444", gold = "#f4c542";
-  function candle(x, y, h, up) {
-    c.fillStyle = up ? green : red; c.fillRect(x, y, 10, h);
-    c.strokeStyle = up ? green : red; c.lineWidth = 2;
-    c.beginPath(); c.moveTo(x+5, y-6); c.lineTo(x+5, y+h+6); c.stroke();
-  }
-  if (kind === "jumper") {
-    const hs=[30,42,26,50,34,58,40]; hs.forEach((h,i)=>candle(8+i*17, H-h-6, h, i%3!==1));
-    c.font="24px system-ui, 'Apple Color Emoji'"; c.fillText("🍌", W-34, 30);
-  } else if (kind === "runner") {
-    c.strokeStyle=green; c.lineWidth=3; c.beginPath();
-    [0,20,14,40,30,60,48,86].forEach((y,i)=>{ const x=i*(W/7); i?c.lineTo(x,H-y):c.moveTo(x,H-y); }); c.stroke();
-    c.font="22px system-ui, 'Apple Color Emoji'"; c.fillText("🍌", W-40, 34);
-  } else if (kind === "island") {
-    c.font="46px system-ui, 'Apple Color Emoji'"; c.fillText("🏝️", W-64, H-24);
-    c.font="18px system-ui, 'Apple Color Emoji'"; c.fillStyle=gold;
-    c.fillText("🪙", 6, 30); c.fillText("🪙", 30, 54); c.fillText("🚀", W-30, 22);
-  } else if (kind === "bull") {
-    c.strokeStyle=green; c.lineWidth=2; c.beginPath(); c.moveTo(4,H-8); c.lineTo(W-8,12); c.stroke();
-    const hs=[24,38,30,48]; hs.forEach((h,i)=>candle(14+i*26, H-h-8, h, true));
-    c.font="30px system-ui, 'Apple Color Emoji'"; c.fillText("🐂", W-40, 34);
-  } else if (kind === "reels") {
-    c.fillStyle="#070b14"; (c.roundRect ? (c.beginPath(),c.roundRect(8,20,W-16,56,8),c.fill()) : c.fillRect(8,20,W-16,56));
-    c.strokeStyle="rgba(244,197,66,.4)"; c.lineWidth=2; c.strokeRect(9,21,W-18,54);
-    c.font="30px system-ui, 'Apple Color Emoji'"; c.textAlign="center"; c.textBaseline="middle";
-    ["🍌","🚀","💎"].forEach((e,i)=>c.fillText(e, 8+(W-16)*(i+.5)/3, 48));
-  }
-}
+const bananaImg = new Image(); let bananaReady = false;
+bananaImg.onload = () => { bananaReady = true; render(); };
+bananaImg.src = "assets/bumbana_logo.png";
 
 function render() {
   const grid = document.getElementById("grid"); grid.innerHTML = "";
@@ -142,20 +146,23 @@ function render() {
     a.className = "card" + (g.isNew ? " new" : "");
     a.href = g.href;
     if (g.href.startsWith("http")) { a.target = "_blank"; a.rel = "noopener"; }
-    const metaBest = g.best != null ? `<span class="best">Best ${g.best}</span> · ` : "";
-    a.innerHTML = `
-      <h2>${g.title}</h2>
-      <p class="tag">${g.tag}</p>
-      <div class="meta">${metaBest}${plays} plays</div>
-      <canvas class="art" width="130" height="96"></canvas>
-      <span class="play">PLAY</span>`;
+    const metaBest = g.best != null ? `Best ${g.best} · ` : "";
+    const badge = g.isNew ? `<span class="badge">NEW</span>` : "";
+    if (g.img) {
+      a.innerHTML = `<img class="art" src="${g.img}" alt="${g.title} art" loading="lazy" />${badge}
+        <div class="body"><h2>${g.title}</h2><p class="tag">${g.tag}</p><div class="meta">${metaBest}${plays} plays</div></div>
+        <span class="play">PLAY</span>`;
+    } else {
+      a.innerHTML = `<canvas class="art" width="360" height="220"></canvas>${badge}
+        <div class="body"><h2>${g.title}</h2><p class="tag">${g.tag}</p><div class="meta">${metaBest}${plays} plays</div></div>
+        <span class="play">PLAY</span>`;
+    }
     grid.appendChild(a);
-    drawArt(a.querySelector(".art"), g.art);
+    if (!g.img) drawReelsArt(a.querySelector(".art"));
   });
   document.getElementById("footer").textContent = total.toLocaleString("en-US") + " plays across all games";
 }
 
-drawMascot(document.getElementById("mascot"));
 render();
 </script>
 </body>

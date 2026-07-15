@@ -32,3 +32,6 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# Playwright test output
+.playwright-mcp/

@@ -18,8 +18,8 @@ Open `index.html` (the hub) or `pump-reels.html` (straight to the game) in any m
 
 ## The game
 
-- **5 reels × 3 rows, 9 paylines.** Match 3+ symbols left-to-right; wins pay `symbol multiplier × bet`.
-- 🥸 **WILD** substitutes any symbol except the Moon; 5× WILD = the 100× jackpot.
+- **5 reels × 3 rows, 9 paylines.** Match symbols left-to-right; wins pay `symbol multiplier × bet`. Top symbols 💎 🚀 🐂; the low "you didn't moon" fillers are altcoins — Bitcoin ₿, Ethereum Ξ, Dogecoin Ð, Solana ◎ (these pay from 2 of a kind).
+- 🍌 **WILD** is the Bumbana banana mascot — substitutes any symbol except the Moon; 5× banana WILD = the 100× jackpot.
 - 🌙 **SCATTER** — 3 / 4 / 5 anywhere → 10 / 15 / 20 free spins ("Pump Session"), all wins ×2.
 - **Nanas 🍌** are virtual chips: start with 1000, top up free with the daily bonus (grows over a 7-day streak) or a free refill when low.
 - Sequential reel stops with **anticipation** on the last reel, win-line highlights, coin shower, and Big/Mega Win celebrations.
