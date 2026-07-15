@@ -1,0 +1,972 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0b0f1a" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>Pump Reels — Bumbana Games Hub</title>
+<meta name="description" content="Pump Reels — spin the reels, stack the bananas. Free-play social casino slot. Virtual chips, no cash value." />
+<style>
+  /* ============================================================
+     Pump Reels — free-play social-casino slot for Bumbana Games Hub
+     Single self-contained file. No external libraries. No images.
+     Canvas + emoji rendering. Tune everything via CONFIG below.
+     ============================================================ */
+  :root {
+    --bg: #0b0f1a;
+    --panel: #121826;
+    --panel-2: #0e1420;
+    --edge: #1f2a3c;
+    --gold: #f4c542;
+    --gold-2: #ffd76a;
+    --green: #22c55e;
+    --green-2: #16a34a;
+    --red: #ef4444;
+    --text: #e8eef7;
+    --muted: #8aa0bd;
+    --shadow: 0 10px 30px rgba(0,0,0,.45);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%;
+    background: radial-gradient(1200px 700px at 50% -10%, #12203a 0%, var(--bg) 55%) fixed;
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    overscroll-behavior: none; touch-action: manipulation;
+    user-select: none; -webkit-user-select: none;
+  }
+  body { display: flex; flex-direction: column; align-items: center; min-height: 100%; }
+  .wrap { width: 100%; max-width: 560px; padding: 10px 12px 22px; display: flex; flex-direction: column; gap: 10px; }
+
+  /* ---- Top bar ---- */
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .brand { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .mascot { width: 34px; height: 34px; flex: 0 0 auto; }
+  .brand h1 { font-size: 17px; margin: 0; letter-spacing: .3px; white-space: nowrap; }
+  .brand small { color: var(--muted); font-weight: 600; font-size: 11px; }
+  .top-actions { display: flex; gap: 6px; }
+  .icon-btn {
+    background: var(--panel); border: 1px solid var(--edge); color: var(--text);
+    width: 38px; height: 38px; border-radius: 12px; font-size: 16px; cursor: pointer;
+    display: grid; place-items: center; transition: transform .08s ease, background .15s;
+  }
+  .icon-btn:active { transform: scale(.92); }
+  .icon-btn.home { text-decoration: none; }
+
+  /* ---- HUD ---- */
+  .hud { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .stat {
+    background: linear-gradient(180deg, var(--panel), var(--panel-2));
+    border: 1px solid var(--edge); border-radius: 14px; padding: 9px 10px; text-align: center;
+    box-shadow: var(--shadow);
+  }
+  .stat .label { font-size: 10px; letter-spacing: 1.2px; color: var(--muted); text-transform: uppercase; }
+  .stat .val { font-size: 19px; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .stat .val.gold { color: var(--gold); }
+  .stat .val.green { color: var(--green); }
+
+  /* ---- Slot frame ---- */
+  .slot {
+    position: relative; border-radius: 20px; padding: 12px;
+    background: linear-gradient(180deg, #1a2440, #0e1526);
+    border: 1px solid #2a3a5a;
+    box-shadow: var(--shadow), inset 0 0 0 2px rgba(244,197,66,.12);
+  }
+  .slot::before {
+    content: ""; position: absolute; inset: 6px; border-radius: 15px; pointer-events: none;
+    box-shadow: inset 0 0 40px rgba(244,197,66,.10), inset 0 0 0 1px rgba(244,197,66,.22);
+  }
+  .slot.freemode { animation: freeglow 1.6s ease-in-out infinite; }
+  @keyframes freeglow {
+    0%,100% { box-shadow: var(--shadow), inset 0 0 0 2px rgba(168,85,247,.35); }
+    50% { box-shadow: 0 0 40px rgba(168,85,247,.5), inset 0 0 0 2px rgba(244,197,66,.4); }
+  }
+  #reels { display: block; width: 100%; height: auto; border-radius: 12px; background: #070b14; }
+
+  .freebanner {
+    position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+    background: linear-gradient(90deg,#7c3aed,#a855f7); color: #fff;
+    padding: 5px 14px; border-radius: 999px; font-weight: 800; font-size: 12px; letter-spacing: .5px;
+    box-shadow: 0 6px 18px rgba(124,58,237,.5); white-space: nowrap; z-index: 3; display: none;
+  }
+  .slot.freemode .freebanner { display: block; }
+
+  /* ---- Controls ---- */
+  .controls { display: flex; flex-direction: column; gap: 10px; }
+  .betrow { display: flex; align-items: center; gap: 8px; }
+  .bet-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-right: 2px; }
+  .bets { display: flex; gap: 6px; flex: 1; }
+  .bet {
+    flex: 1; background: var(--panel); border: 1px solid var(--edge); color: var(--text);
+    border-radius: 11px; padding: 9px 0; font-weight: 800; font-size: 14px; cursor: pointer;
+    transition: transform .08s, border-color .15s, background .15s;
+  }
+  .bet.active { border-color: var(--gold); background: rgba(244,197,66,.14); color: var(--gold-2); }
+  .bet:active { transform: scale(.94); }
+
+  .actionrow { display: grid; grid-template-columns: 1fr 1.6fr 1fr; gap: 10px; align-items: stretch; }
+  .btn {
+    border: none; border-radius: 14px; font-weight: 800; cursor: pointer; color: #06210f;
+    transition: transform .08s, filter .15s, opacity .15s; font-size: 14px;
+    display: grid; place-items: center; padding: 12px 6px;
+  }
+  .btn:active { transform: scale(.96); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn.secondary { background: var(--panel); color: var(--text); border: 1px solid var(--edge); }
+  .btn.spin {
+    background: radial-gradient(120% 120% at 50% 0%, var(--gold-2), var(--gold));
+    color: #3a2a00; font-size: 20px; letter-spacing: .5px; box-shadow: 0 8px 22px rgba(244,197,66,.35);
+    text-transform: uppercase;
+  }
+  .btn.spin.stop { background: radial-gradient(120% 120% at 50% 0%, #ff8a8a, var(--red)); color:#3a0000; }
+  .btn small { display: block; font-size: 10px; font-weight: 700; opacity: .8; letter-spacing: 1px; }
+
+  /* ---- Free / bonus buttons ---- */
+  .free-nanas {
+    display: none; background: linear-gradient(90deg,var(--green-2),var(--green)); color: #06210f;
+    border: none; border-radius: 12px; padding: 11px; font-weight: 800; cursor: pointer;
+    box-shadow: 0 8px 20px rgba(34,197,94,.35);
+  }
+  .free-nanas.show { display: block; animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.02)} }
+
+  /* ---- Footer / guardrail ---- */
+  .guardrail { text-align: center; color: var(--muted); font-size: 10.5px; line-height: 1.5; padding: 4px 6px; }
+  .guardrail b { color: #b9c6db; }
+
+  /* ---- Overlays ---- */
+  .overlay {
+    position: fixed; inset: 0; z-index: 50; display: none; align-items: center; justify-content: center;
+    background: rgba(4,7,14,.72); backdrop-filter: blur(3px); padding: 20px;
+  }
+  .overlay.show { display: flex; }
+  .card {
+    background: linear-gradient(180deg,var(--panel),var(--panel-2)); border: 1px solid var(--edge);
+    border-radius: 20px; padding: 22px; max-width: 380px; width: 100%; text-align: center;
+    box-shadow: var(--shadow);
+  }
+  .card h2 { margin: 4px 0 8px; font-size: 22px; }
+  .card p { color: var(--muted); font-size: 13.5px; line-height: 1.6; margin: 8px 0; }
+  .card .big { font-size: 30px; font-weight: 900; color: var(--gold); margin: 6px 0; }
+  .card .btn { margin-top: 14px; width: 100%; background: linear-gradient(90deg,var(--gold-2),var(--gold)); color:#3a2a00; }
+  .daylist { display: flex; gap: 5px; justify-content: center; margin: 12px 0; flex-wrap: wrap; }
+  .day { flex: 1 0 40px; background: var(--panel-2); border: 1px solid var(--edge); border-radius: 10px; padding: 7px 2px; font-size: 10px; }
+  .day.claimed { opacity: .5; }
+  .day.today { border-color: var(--gold); background: rgba(244,197,66,.14); }
+  .day .d { color: var(--muted); }
+  .day .amt { font-weight: 800; color: var(--gold); font-size: 12px; margin-top: 2px; }
+
+  /* ---- Big win banner (in-flow, non-blocking) ---- */
+  .winbanner {
+    position: fixed; top: 18%; left: 50%; transform: translateX(-50%) scale(.6); z-index: 40;
+    text-align: center; pointer-events: none; opacity: 0; transition: none;
+  }
+  .winbanner.show { animation: winpop .5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  @keyframes winpop { to { opacity: 1; transform: translateX(-50%) scale(1); } }
+  .winbanner .kind { font-size: 30px; font-weight: 900; letter-spacing: 1px; color: var(--gold-2); }
+  .winbanner .amt { font-size: 40px; font-weight: 900; color: var(--gold); margin-top: 2px; }
+
+  .toast {
+    position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--panel); border: 1px solid var(--edge); color: var(--text);
+    padding: 10px 16px; border-radius: 999px; font-size: 12.5px; z-index: 60; opacity: 0;
+    transition: opacity .25s, transform .25s; box-shadow: var(--shadow); max-width: 90vw; text-align:center;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 380px) {
+    .brand h1 { font-size: 15px; }
+    .stat .val { font-size: 17px; }
+    .btn.spin { font-size: 18px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand">
+      <canvas class="mascot" id="mascot" width="68" height="68" aria-hidden="true"></canvas>
+      <div>
+        <h1>Pump Reels</h1>
+        <small>Spin the reels. Stack the bananas.</small>
+      </div>
+    </div>
+    <div class="top-actions">
+      <button class="icon-btn" id="muteBtn" title="Sound">🔇</button>
+      <button class="icon-btn" id="infoBtn" title="Info">ℹ️</button>
+      <a class="icon-btn home" id="homeBtn" href="index.html" title="Hub">🏠</a>
+    </div>
+  </div>
+
+  <div class="hud">
+    <div class="stat"><div class="label">Balance</div><div class="val gold" id="balanceVal">0</div></div>
+    <div class="stat"><div class="label">Bet</div><div class="val" id="betVal">10</div></div>
+    <div class="stat"><div class="label">Win</div><div class="val green" id="winVal">0</div></div>
+  </div>
+
+  <div class="slot" id="slot">
+    <div class="freebanner" id="freeBanner">🌙 PUMP SESSION ×2 · <span id="freeCount">0</span> left</div>
+    <canvas id="reels" width="720" height="440"></canvas>
+  </div>
+
+  <button class="free-nanas" id="freeNanas">🍌 Claim free refill (+<span id="refillAmt">250</span> Nanas)</button>
+
+  <div class="controls">
+    <div class="betrow">
+      <span class="bet-label">Bet</span>
+      <div class="bets" id="bets"></div>
+    </div>
+    <div class="actionrow">
+      <button class="btn secondary" id="autoBtn">AUTO<small id="autoLabel">SPIN</small></button>
+      <button class="btn spin" id="spinBtn">SPIN<small>tap to play</small></button>
+      <button class="btn secondary" id="maxBtn">MAX<small>BET</small></button>
+    </div>
+  </div>
+
+  <div class="guardrail">
+    <b>For entertainment only. Virtual chips (Nanas 🍌), no cash value. Not real-money gambling.</b><br>
+    Samo za zabavo. Virtualni žetoni brez denarne vrednosti. Ni igra na srečo za pravi denar.
+  </div>
+</div>
+
+<!-- Win banner -->
+<div class="winbanner" id="winBanner"><div class="kind" id="winKind">BIG WIN</div><div class="amt" id="winAmt">0</div></div>
+
+<!-- Daily bonus overlay -->
+<div class="overlay" id="bonusOverlay">
+  <div class="card">
+    <div class="big">🍌 Daily Bonus</div>
+    <p id="bonusStreak">Day 1 streak</p>
+    <div class="daylist" id="dayList"></div>
+    <p>Come back every day — the bonus grows all week!</p>
+    <button class="btn" id="claimBtn">Claim +<span id="claimAmt">500</span> Nanas</button>
+  </div>
+</div>
+
+<!-- Info overlay -->
+<div class="overlay" id="infoOverlay">
+  <div class="card" style="text-align:left; max-width:420px;">
+    <h2 style="text-align:center">How Pump Reels works</h2>
+    <p><b>5 reels × 3 rows, 9 paylines.</b> Match 3+ identical symbols left-to-right on a payline to win. Wins pay <b>symbol multiplier × your bet</b>.</p>
+    <p>🥸 <b>WILD</b> substitutes for any symbol except the Moon. Five WILDs = the <b>100× JACKPOT</b>.</p>
+    <p>🌙 <b>SCATTER</b> — land 3 / 4 / 5 anywhere for <b>10 / 15 / 20 free spins</b> (Pump Session) where every win is <b>×2</b>.</p>
+    <p>🍌 <b>Nanas</b> are virtual chips with <b>no cash value</b>. There is no way to buy chips and no way to cash out — top up free every day with the Daily Bonus, or grab a free refill when you run low.</p>
+    <p style="text-align:center; color:#b9c6db"><b>For entertainment only. Not real-money gambling.</b></p>
+    <button class="btn" id="infoClose" style="background:var(--panel); color:var(--text); border:1px solid var(--edge)">Got it</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* ============================================================================
+   CONFIG — tune the whole game here.
+   Target virtual RTP ~94%, hit frequency ~30-40% (occasional small wins,
+   rarer big wins) so balance drains slowly and drives the daily free bonus.
+   ============================================================================ */
+const CONFIG = {
+  gameSlug: "pump-reels",
+  playsKey: "game_plays_pump_reels",     // hub aggregate: game_plays_<slug_underscored>
+  storePrefix: "pumpreels:",             // game-local state namespace
+  startingBalance: 1000,
+  betOptions: [10, 25, 50, 100],
+  reels: 5,
+  rows: 3,
+  freeSpinMultiplier: 2,                  // ×2 wins during Pump Session
+  jackpotMultiplier: 900,                 // 5× WILD => 900× line bet = 100× total bet
+  bigWinMult: 15,                         // win >= bet*15 => BIG WIN
+  megaWinMult: 40,                        // win >= bet*40 => MEGA WIN
+  scatterFreeSpins: { 3: 10, 4: 15, 5: 20 },
+  scatterPay: { 3: 4, 4: 15, 5: 75 },     // × total bet, awarded on scatter hit
+  dailyBonus: [500, 650, 800, 1000, 1300, 1600, 2000], // day 1..7, then repeats at day 7
+  refillAmount: 250,
+  refillCooldownHours: 3,
+  sessionReminderMinutes: 20,
+};
+
+/* Symbols: id, emoji, display color (for WILD text). Ordered high -> low pay. */
+const SYM = {
+  DIA:     { id:"DIA",     e:"💎", name:"Diamond" },
+  ROCKET:  { id:"ROCKET",  e:"🚀", name:"Rocket" },
+  BULL:    { id:"BULL",    e:"🐂", name:"Bull" },
+  SEVEN:   { id:"SEVEN",   e:"7️⃣", name:"Lucky Seven" },
+  BANANA:  { id:"BANANA",  e:"🍌", name:"Banana" },
+  CANDLE:  { id:"CANDLE",  e:"📈", name:"Green Candle" },
+  BELL:    { id:"BELL",    e:"🔔", name:"Bell" },
+  CHERRY:  { id:"CHERRY",  e:"🍒", name:"Cherry" },
+  WILD:    { id:"WILD",    e:"🥸", name:"Wild", wild:true },
+  SCATTER: { id:"SCATTER", e:"🌙", name:"Scatter", scatter:true },
+};
+
+/* Paytable: multiplier of the LINE bet (bet / 9) per count of a kind.
+   Low symbols also pay for 2 of a kind (frequent small wins). Tuned via a
+   1M-spin Monte Carlo to ~94% RTP, ~28% hit frequency (see README / HANDOFF). */
+const PAYTABLE = {
+  DIA:    { 3:35,  4:100, 5:400 },
+  ROCKET: { 3:25,  4:70,  5:200 },
+  BULL:   { 3:20,  4:50,  5:150 },
+  SEVEN:  { 2:0.5, 3:15,  4:40,  5:125 },
+  BANANA: { 2:0.75,3:10,  4:30,  5:90  },
+  CANDLE: { 2:1,   3:7,   4:18,  5:60  },
+  BELL:   { 2:0.75,3:5,   4:12,  5:40  },
+  CHERRY: { 2:1,   3:4,   4:9,   5:20  },
+};
+
+/* Weighted reel strips — rarer symbols appear less. WILD/SCATTER rare.
+   Same weighting per reel (simple + tunable). Higher weight = more common. */
+const WEIGHTS = {
+  CHERRY: 26, BELL: 22, CANDLE: 19, BANANA: 14, SEVEN: 9,
+  BULL: 7, ROCKET: 5, DIA: 3, WILD: 5, SCATTER: 2,
+};
+function buildStrip() {
+  const strip = [];
+  for (const k in WEIGHTS) for (let i = 0; i < WEIGHTS[k]; i++) strip.push(k);
+  return strip;
+}
+const REEL_STRIPS = Array.from({ length: CONFIG.reels }, buildStrip);
+
+/* 9 paylines over a 5x3 grid. Each entry is the row index (0 top,1 mid,2 bot) per reel. */
+const PAYLINES = [
+  [1,1,1,1,1], // 0 middle
+  [0,0,0,0,0], // 1 top
+  [2,2,2,2,2], // 2 bottom
+  [0,1,2,1,0], // 3 V
+  [2,1,0,1,2], // 4 ^
+  [0,0,1,0,0], // 5
+  [2,2,1,2,2], // 6
+  [1,0,0,0,1], // 7
+  [1,2,2,2,1], // 8
+];
+const LINE_COLORS = ["#f4c542","#22c55e","#38bdf8","#a855f7","#ef4444","#fb923c","#e879f9","#2dd4bf","#facc15"];
+
+/* ============================================================================
+   STORAGE — game-local state + hub-shared plays counter.
+   Isolated here so the hub owner can later swap the plays counter to Supabase
+   (see HANDOFF.md) without touching game logic.
+   ============================================================================ */
+const Store = {
+  gGet(k, d) { try { const v = localStorage.getItem(CONFIG.storePrefix + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  gSet(k, v) { try { localStorage.setItem(CONFIG.storePrefix + k, JSON.stringify(v)); } catch {} },
+  // Hub-shared plays: integer under game_plays_pump_reels (sums into "N plays across all games").
+  getPlays() { const n = parseInt(localStorage.getItem(CONFIG.playsKey) || "0", 10); return isNaN(n) ? 0 : n; },
+  incPlays() { const n = this.getPlays() + 1; try { localStorage.setItem(CONFIG.playsKey, String(n)); } catch {} return n; },
+};
+
+/* ============================================================================
+   GAME STATE
+   ============================================================================ */
+const State = {
+  balance: Store.gGet("balance", CONFIG.startingBalance),
+  bet: Store.gGet("bet", CONFIG.betOptions[0]),
+  best: Store.gGet("best", CONFIG.startingBalance),      // best = highest balance reached
+  biggestWin: Store.gGet("biggestWin", 0),
+  muted: Store.gGet("muted", true),                      // default silent
+  lastRefill: Store.gGet("lastRefill", 0),
+  bonusLastDay: Store.gGet("bonusLastDay", ""),          // YYYY-MM-DD of last claim
+  bonusStreak: Store.gGet("bonusStreak", 0),
+  // volatile
+  spinning: false,
+  freeSpins: 0,
+  freeActive: false,
+  autoRemaining: 0,
+  lastWin: 0,
+  sessionStart: Date.now(),
+  sessionReminded: false,
+};
+if (!CONFIG.betOptions.includes(State.bet)) State.bet = CONFIG.betOptions[0];
+
+function persist() {
+  Store.gSet("balance", State.balance);
+  Store.gSet("bet", State.bet);
+  Store.gSet("best", State.best);
+  Store.gSet("biggestWin", State.biggestWin);
+  Store.gSet("muted", State.muted);
+  Store.gSet("lastRefill", State.lastRefill);
+  Store.gSet("bonusLastDay", State.bonusLastDay);
+  Store.gSet("bonusStreak", State.bonusStreak);
+}
+
+/* ============================================================================
+   RNG + SLOT MATH
+   ============================================================================ */
+function pickStop(reelIndex) {
+  const strip = REEL_STRIPS[reelIndex];
+  return Math.floor(Math.random() * strip.length);
+}
+// Build the visible 5x3 grid from stop positions: grid[reel][row] = symbol id.
+function buildGrid(stops) {
+  const grid = [];
+  for (let r = 0; r < CONFIG.reels; r++) {
+    const strip = REEL_STRIPS[r];
+    const col = [];
+    for (let row = 0; row < CONFIG.rows; row++) {
+      col.push(strip[(stops[r] + row) % strip.length]);
+    }
+    grid.push(col);
+  }
+  return grid;
+}
+// Evaluate one payline; returns {symbol,count,win,cells} or null.
+function evalLine(grid, line, lineBet) {
+  const cells = [];
+  for (let r = 0; r < CONFIG.reels; r++) cells.push({ r, row: line[r], s: grid[r][line[r]] });
+  // Determine base symbol: first non-wild; if all wild, treat as WILD.
+  let base = null;
+  for (const c of cells) { if (c.s !== "SCATTER" && c.s !== "WILD") { base = c.s; break; } }
+  const allWildLead = cells[0].s === "WILD";
+  // Count consecutive from reel 0 that are base or WILD.
+  let count = 0;
+  for (const c of cells) {
+    if (c.s === "SCATTER") break;
+    if (base === null) { // still only wilds so far
+      if (c.s === "WILD") { count++; continue; } else break;
+    }
+    if (c.s === base || c.s === "WILD") count++;
+    else break;
+  }
+  // All-wild line (base never set) => WILD win.
+  if (base === null) {
+    if (count >= 3 && allWildLead) {
+      const win = (count === 5 ? CONFIG.jackpotMultiplier : (PAYTABLE.DIA[count] || 0)) * lineBet;
+      return { symbol: "WILD", count, win, cells: cells.slice(0, count), jackpot: count === 5 };
+    }
+    return null;
+  }
+  if (count >= 2 && PAYTABLE[base] && PAYTABLE[base][count]) {
+    const win = PAYTABLE[base][count] * lineBet;
+    if (win > 0) return { symbol: base, count, win, cells: cells.slice(0, count) };
+  }
+  return null;
+}
+function countScatter(grid) {
+  const pos = [];
+  for (let r = 0; r < CONFIG.reels; r++) for (let row = 0; row < CONFIG.rows; row++)
+    if (grid[r][row] === "SCATTER") pos.push({ r, row });
+  return pos;
+}
+// Full evaluation of a grid for a given bet. Returns everything the UI needs.
+function evaluate(grid, bet, multiplier) {
+  const lineBet = bet / PAYLINES.length;
+  let total = 0, lineWins = [], jackpot = false;
+  for (let i = 0; i < PAYLINES.length; i++) {
+    const res = evalLine(grid, PAYLINES[i], lineBet);
+    if (res) { res.line = i; res.win = res.win * multiplier; total += res.win; lineWins.push(res); if (res.jackpot) jackpot = true; }
+  }
+  const scPos = countScatter(grid);
+  const scN = Math.min(scPos.length, 5);
+  let scatterPay = 0, freeAwarded = 0;
+  if (scN >= 3) {
+    scatterPay = (CONFIG.scatterPay[scN] || 0) * bet * multiplier;
+    freeAwarded = CONFIG.scatterFreeSpins[scN] || 0;
+    total += scatterPay;
+  }
+  return { total, lineWins, scatterPos: scPos, scatterCount: scN, scatterPay, freeAwarded, jackpot };
+}
+
+/* ============================================================================
+   AUDIO — WebAudio, generated (no files). Muted by default.
+   ============================================================================ */
+const Sound = {
+  ctx: null,
+  ensure() { if (!this.ctx) { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch {} } },
+  blip(freq, dur, type, vol) {
+    if (State.muted) return;
+    this.ensure(); if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = type || "sine"; o.frequency.value = freq;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol || .12, t + .01);
+    g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(g); g.connect(this.ctx.destination);
+    o.start(t); o.stop(t + dur);
+  },
+  spin() { this.blip(180, .12, "sawtooth", .05); },
+  stop() { this.blip(320, .06, "square", .06); },
+  win() { [523,659,784].forEach((f,i)=>setTimeout(()=>this.blip(f,.18,"triangle",.1),i*70)); },
+  big() { [523,659,784,1046,1318].forEach((f,i)=>setTimeout(()=>this.blip(f,.25,"triangle",.12),i*90)); },
+  coin() { this.blip(880 + Math.random()*200, .08, "sine", .05); },
+};
+
+/* ============================================================================
+   RENDERING — canvas reels, symbols via fillText, spin + anticipation.
+   ============================================================================ */
+const canvas = document.getElementById("reels");
+const ctx = canvas.getContext("2d");
+const DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+let CELL = 0, PAD = 0, ROWH = 0, GRIDX = 0, GRIDY = 0;
+function layout() {
+  // Keep internal canvas resolution proportional; CSS scales width.
+  const cw = 720, ch = 440;
+  canvas.width = cw * DPR; canvas.height = ch * DPR;
+  canvas.style.height = (canvas.clientWidth * ch / cw) + "px";
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  PAD = 12;
+  const usableW = cw - PAD * 2;
+  CELL = usableW / CONFIG.reels;
+  ROWH = CELL;
+  GRIDX = PAD; GRIDY = (ch - ROWH * CONFIG.rows) / 2;
+}
+
+// Reel visual model.
+const reelView = REEL_STRIPS.map((strip, i) => ({
+  strip, offset: 0, speed: 0, spinning: false, stopAt: 0, stopped: true,
+  result: ["CHERRY","CHERRY","CHERRY"], scroll: strip.slice(),
+}));
+
+let winFlash = { lines: [], t: 0 };       // winning lines to highlight
+let particles = [];                        // coin shower
+let anticipationReel = -1;
+
+function drawSymbol(id, cx, cy, size, alpha) {
+  ctx.save();
+  ctx.globalAlpha = alpha === undefined ? 1 : alpha;
+  const s = SYM[id];
+  if (id === "WILD") {
+    // Golden WILD tile look, still emoji mascot in center.
+    ctx.font = `${size*0.82}px system-ui, "Apple Color Emoji", "Segoe UI Emoji"`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(s.e, cx, cy - size*0.06);
+    ctx.font = `800 ${size*0.24}px -apple-system, system-ui`;
+    ctx.fillStyle = "#f4c542"; ctx.fillText("WILD", cx, cy + size*0.34);
+  } else {
+    ctx.font = `${size*0.9}px system-ui, "Apple Color Emoji", "Segoe UI Emoji"`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(s.e, cx, cy);
+  }
+  ctx.restore();
+}
+
+function drawReels(ts) {
+  ctx.clearRect(0, 0, 720, 440);
+  // Background gridlines
+  ctx.save();
+  ctx.strokeStyle = "rgba(244,197,66,.10)"; ctx.lineWidth = 1;
+  for (let r = 1; r < CONFIG.reels; r++) {
+    const x = GRIDX + r * CELL;
+    ctx.beginPath(); ctx.moveTo(x, GRIDY); ctx.lineTo(x, GRIDY + ROWH * CONFIG.rows); ctx.stroke();
+  }
+  ctx.restore();
+
+  const size = CELL * 0.6;
+  for (let r = 0; r < CONFIG.reels; r++) {
+    const rv = reelView[r];
+    const x = GRIDX + r * CELL + CELL / 2;
+    // Clip each reel column.
+    ctx.save();
+    ctx.beginPath(); ctx.rect(GRIDX + r * CELL, GRIDY, CELL, ROWH * CONFIG.rows); ctx.clip();
+
+    if (rv.spinning) {
+      // Scrolling blur of random strip symbols.
+      const total = rv.strip.length;
+      const speedBlur = Math.min(1, rv.speed / 2600);
+      const baseIdx = Math.floor(rv.offset / ROWH);
+      for (let k = -1; k <= CONFIG.rows + 1; k++) {
+        const idx = ((baseIdx + k) % total + total) % total;
+        const sym = rv.scroll[idx];
+        const y = GRIDY + k * ROWH - (rv.offset % ROWH) + ROWH / 2;
+        drawSymbol(sym, x, y, size, 1 - speedBlur * 0.45);
+      }
+      // Anticipation glow on the highlighted reel.
+      if (r === anticipationReel) {
+        ctx.strokeStyle = "rgba(168,85,247,.9)"; ctx.lineWidth = 3;
+        ctx.strokeRect(GRIDX + r*CELL + 2, GRIDY + 2, CELL - 4, ROWH*CONFIG.rows - 4);
+      }
+    } else {
+      // Stopped: show result, with tiny settle bounce.
+      const bounce = rv.bounce ? Math.sin(rv.bounce * Math.PI) * 6 * (1 - rv.bounceT) : 0;
+      for (let row = 0; row < CONFIG.rows; row++) {
+        const y = GRIDY + row * ROWH + ROWH / 2 + (rv.stopped ? bounce : 0);
+        drawSymbol(rv.result[row], x, y, size);
+      }
+    }
+    ctx.restore();
+  }
+
+  // Winning line highlights + symbol pulse.
+  if (winFlash.lines.length && winFlash.t > 0) {
+    const pulse = 0.5 + 0.5 * Math.sin(ts / 140);
+    for (const lw of winFlash.lines) {
+      const col = LINE_COLORS[lw.line % LINE_COLORS.length];
+      ctx.save();
+      ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.globalAlpha = 0.5 + 0.4 * pulse;
+      ctx.beginPath();
+      lw.cells.forEach((c, i) => {
+        const x = GRIDX + c.r * CELL + CELL / 2;
+        const y = GRIDY + c.row * ROWH + ROWH / 2;
+        i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+      });
+      ctx.stroke();
+      // pulse boxes
+      ctx.globalAlpha = 0.25 + 0.35 * pulse;
+      for (const c of lw.cells) {
+        ctx.strokeStyle = col; ctx.lineWidth = 2;
+        ctx.strokeRect(GRIDX + c.r*CELL + 4, GRIDY + c.row*ROWH + 4, CELL - 8, ROWH - 8);
+      }
+      ctx.restore();
+    }
+  }
+
+  // Coin shower particles.
+  if (particles.length) {
+    for (const p of particles) {
+      ctx.save(); ctx.globalAlpha = Math.max(0, p.life);
+      ctx.font = `${p.size}px system-ui, "Apple Color Emoji"`;
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(p.e, p.x, p.y); ctx.restore();
+    }
+  }
+}
+
+/* Animation loop */
+let lastTs = 0;
+function frame(ts) {
+  if (!lastTs) lastTs = ts;
+  const dt = Math.min(50, ts - lastTs) / 1000;
+  lastTs = ts;
+
+  for (const rv of reelView) {
+    if (rv.spinning) {
+      rv.offset += rv.speed * dt;
+      if (ts >= rv.stopAt) stopReel(rv);
+    } else if (rv.bounce !== undefined && rv.bounceT < 1) {
+      rv.bounceT = Math.min(1, rv.bounceT + dt * 3.2);
+      rv.bounce = 1 - rv.bounceT;
+    }
+  }
+  if (winFlash.t > 0) winFlash.t -= dt;
+  if (particles.length) {
+    for (const p of particles) { p.vy += 900 * dt; p.y += p.vy * dt; p.x += p.vx * dt; p.life -= dt * 0.5; }
+    particles = particles.filter(p => p.life > 0 && p.y < 480);
+  }
+  drawReels(ts);
+  requestAnimationFrame(frame);
+}
+
+function stopReel(rv) {
+  rv.spinning = false; rv.stopped = true; rv.bounce = 1; rv.bounceT = 0; rv.offset = 0;
+  Sound.stop();
+}
+
+function spawnCoins(n) {
+  for (let i = 0; i < n; i++) {
+    particles.push({
+      x: 120 + Math.random() * 480, y: 40 + Math.random() * 60,
+      vx: (Math.random() - 0.5) * 120, vy: -50 - Math.random() * 120,
+      e: Math.random() < 0.5 ? "🍌" : "💸", size: 22 + Math.random() * 14, life: 1.4,
+    });
+  }
+}
+
+/* ============================================================================
+   SPIN FLOW
+   ============================================================================ */
+function currentBet() { return State.bet; }
+
+async function doSpin() {
+  if (State.spinning) return;
+  const bet = currentBet();
+  const free = State.freeActive && State.freeSpins > 0;
+
+  if (!free) {
+    if (State.balance < bet) { checkRefill(true); toast("Not enough Nanas — grab a free refill or daily bonus!"); return; }
+    State.balance -= bet;
+  }
+  State.spinning = true;
+  setWin(0);
+  updateHud();
+  Sound.ensure(); Sound.spin();
+
+  // Decide result up-front (authoritative).
+  const stops = REEL_STRIPS.map((_, i) => pickStop(i));
+  const grid = buildGrid(stops);
+  const mult = free ? CONFIG.freeSpinMultiplier : 1;
+  const result = evaluate(grid, bet, mult);
+
+  // Anticipation: if 2+ scatters would be visible in first reels, slow the last reel.
+  const scattersInFirst = grid.slice(0, 3).flat().filter(s => s === "SCATTER").length;
+
+  // Start all reels spinning.
+  const now = performance.now();
+  reelView.forEach((rv, i) => {
+    rv.spinning = true; rv.stopped = false; rv.speed = 2600 + i * 120; rv.offset = 0;
+    rv.result = grid[i].slice();
+    // stagger stop left -> right
+    let stopDelay = 700 + i * 320;
+    if (i === CONFIG.reels - 1 && scattersInFirst >= 2) { stopDelay += 1000; anticipationReel = i; }
+    rv.stopAt = now + stopDelay;
+  });
+
+  // Wait for all reels stopped.
+  const lastStop = now + 700 + (CONFIG.reels - 1) * 320 + (scattersInFirst >= 2 ? 1000 : 0);
+  await waitUntil(lastStop + 260);
+  anticipationReel = -1;
+
+  // Apply result.
+  finishSpin(result, bet, free);
+}
+
+function finishSpin(result, bet, wasFree) {
+  const win = Math.round(result.total);
+  if (win > 0) {
+    State.balance += win;
+    setWin(win);
+    winFlash = { lines: result.lineWins, t: 2.6 };
+    if (win > State.biggestWin) State.biggestWin = win;
+    Sound.win();
+    spawnCoins(Math.min(40, 8 + Math.floor(win / bet)));
+    // celebrations
+    if (result.jackpot) showWinBanner("🎩 JACKPOT!", win), Sound.big();
+    else if (win >= bet * CONFIG.megaWinMult) showWinBanner("MEGA WIN", win), Sound.big();
+    else if (win >= bet * CONFIG.bigWinMult) showWinBanner("BIG WIN", win), Sound.big();
+  } else {
+    winFlash = { lines: [], t: 0 };
+  }
+
+  // Best = highest balance reached.
+  if (State.balance > State.best) State.best = State.balance;
+
+  // Count the spin into hub aggregate.
+  Store.incPlays();
+
+  // Free spins bookkeeping.
+  if (wasFree) {
+    State.freeSpins -= 1;
+    if (result.freeAwarded) { State.freeSpins += result.freeAwarded; toast(`+${result.freeAwarded} free spins!`); }
+    if (State.freeSpins <= 0) endFreeSpins();
+    else updateFreeBanner();
+  } else if (result.freeAwarded) {
+    startFreeSpins(result.freeAwarded, result.scatterCount);
+  }
+
+  State.spinning = false;
+  persist();
+  updateHud();
+  checkRefill(false);
+  maybeSessionReminder();
+
+  // Continue autospin / free spins.
+  scheduleNext();
+}
+
+function scheduleNext() {
+  if (State.freeActive && State.freeSpins > 0) { setTimeout(doSpin, 850); return; }
+  if (State.autoRemaining > 0 && !State.freeActive) {
+    State.autoRemaining -= 1; updateAutoLabel();
+    if (State.balance >= currentBet()) { setTimeout(doSpin, 550); }
+    else { stopAuto(); }
+  }
+}
+
+function startFreeSpins(n, scN) {
+  State.freeActive = true; State.freeSpins = n;
+  document.getElementById("slot").classList.add("freemode");
+  updateFreeBanner();
+  showWinBanner("🌙 PUMP SESSION!", n + " FREE SPINS");
+  Sound.big();
+  setTimeout(() => { if (State.freeActive) doSpin(); }, 1400);
+}
+function updateFreeBanner() { document.getElementById("freeCount").textContent = State.freeSpins; }
+function endFreeSpins() {
+  State.freeActive = false; State.freeSpins = 0;
+  document.getElementById("slot").classList.remove("freemode");
+  toast("Pump Session complete!");
+}
+
+function waitUntil(t) { return new Promise(res => { (function chk(){ performance.now() >= t ? res() : requestAnimationFrame(chk); })(); }); }
+
+/* ============================================================================
+   ECONOMY — daily bonus, free refill
+   ============================================================================ */
+function todayStr() { const d = new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
+function daysBetween(a, b) { return Math.round((b - a) / 86400000); }
+
+function checkDailyBonus() {
+  const today = todayStr();
+  if (State.bonusLastDay === today) return; // already claimed today
+  // Determine streak.
+  let streak = 1;
+  if (State.bonusLastDay) {
+    const prev = new Date(State.bonusLastDay), now = new Date(today);
+    const gap = daysBetween(prev, now);
+    if (gap === 1) streak = Math.min(7, State.bonusStreak + 1);
+    else streak = 1; // missed a day -> reset
+  }
+  State._pendingStreak = streak;
+  showBonusOverlay(streak);
+}
+function showBonusOverlay(streak) {
+  const amt = CONFIG.dailyBonus[Math.min(streak, 7) - 1];
+  document.getElementById("bonusStreak").textContent = `Day ${streak} streak 🔥`;
+  document.getElementById("claimAmt").textContent = amt;
+  const list = document.getElementById("dayList");
+  list.innerHTML = "";
+  for (let d = 1; d <= 7; d++) {
+    const div = document.createElement("div");
+    div.className = "day" + (d < streak ? " claimed" : "") + (d === streak ? " today" : "");
+    div.innerHTML = `<div class="d">Day ${d}</div><div class="amt">+${CONFIG.dailyBonus[d-1]}</div>`;
+    list.appendChild(div);
+  }
+  document.getElementById("bonusOverlay").classList.add("show");
+}
+function claimDailyBonus() {
+  const streak = State._pendingStreak || 1;
+  const amt = CONFIG.dailyBonus[Math.min(streak, 7) - 1];
+  State.balance += amt;
+  State.bonusStreak = streak;
+  State.bonusLastDay = todayStr();
+  if (State.balance > State.best) State.best = State.balance;
+  persist(); updateHud();
+  document.getElementById("bonusOverlay").classList.remove("show");
+  showWinBanner("🍌 DAILY BONUS", "+" + amt);
+  Sound.win();
+}
+
+function checkRefill(force) {
+  const btn = document.getElementById("freeNanas");
+  const now = Date.now();
+  const ready = now - State.lastRefill > CONFIG.refillCooldownHours * 3600000;
+  const low = State.balance < currentBet();
+  if (low && ready) { btn.classList.add("show"); }
+  else { btn.classList.remove("show"); }
+  if (force && low && ready) btn.classList.add("show");
+}
+function claimRefill() {
+  const now = Date.now();
+  if (now - State.lastRefill <= CONFIG.refillCooldownHours * 3600000) {
+    toast("Refill on cooldown — try the daily bonus!"); return;
+  }
+  State.balance += CONFIG.refillAmount;
+  State.lastRefill = now;
+  if (State.balance > State.best) State.best = State.balance;
+  persist(); updateHud();
+  document.getElementById("freeNanas").classList.remove("show");
+  showWinBanner("🍌 FREE REFILL", "+" + CONFIG.refillAmount);
+}
+
+/* ============================================================================
+   UI helpers
+   ============================================================================ */
+function fmt(n) { return Math.round(n).toLocaleString("en-US"); }
+function updateHud() {
+  document.getElementById("balanceVal").textContent = fmt(State.balance);
+  document.getElementById("betVal").textContent = fmt(State.bet);
+}
+function setWin(n) { State.lastWin = n; document.getElementById("winVal").textContent = fmt(n); }
+
+function renderBets() {
+  const wrap = document.getElementById("bets"); wrap.innerHTML = "";
+  CONFIG.betOptions.forEach(v => {
+    const b = document.createElement("button");
+    b.className = "bet" + (v === State.bet ? " active" : "");
+    b.textContent = v; b.dataset.v = v;
+    b.onclick = () => { if (State.spinning || State.freeActive) return; State.bet = v; persist(); renderBets(); updateHud(); Sound.stop(); };
+    wrap.appendChild(b);
+  });
+}
+
+let winBannerTimer = null;
+function showWinBanner(kind, amt) {
+  const b = document.getElementById("winBanner");
+  document.getElementById("winKind").textContent = kind;
+  document.getElementById("winAmt").textContent = typeof amt === "number" ? fmt(amt) : amt;
+  b.classList.remove("show"); void b.offsetWidth; b.classList.add("show");
+  clearTimeout(winBannerTimer);
+  winBannerTimer = setTimeout(() => b.classList.remove("show"), 2200);
+}
+
+let toastTimer = null;
+function toast(msg) {
+  const t = document.getElementById("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 2400);
+}
+
+function updateAutoLabel() {
+  document.getElementById("autoLabel").textContent = State.autoRemaining > 0 ? (State.autoRemaining + " left") : "SPIN";
+  document.getElementById("autoBtn").classList.toggle("active", State.autoRemaining > 0);
+}
+function stopAuto() { State.autoRemaining = 0; updateAutoLabel(); }
+
+function maybeSessionReminder() {
+  if (State.sessionReminded) return;
+  const mins = (Date.now() - State.sessionStart) / 60000;
+  if (mins >= CONFIG.sessionReminderMinutes) {
+    State.sessionReminded = true;
+    toast(`You've been playing for ${Math.round(mins)} min — remember, just for fun! 🍌`);
+  }
+}
+
+/* Mascot: banana with hat + sunglasses, drawn on canvas (no image files). */
+function drawMascot(cnv) {
+  const c = cnv.getContext("2d"); const W = cnv.width, H = cnv.height;
+  c.clearRect(0,0,W,H);
+  c.save(); c.translate(W/2, H/2 + 3);
+  // banana body
+  c.fillStyle = "#f4c542"; c.strokeStyle = "#c99a1f"; c.lineWidth = 2;
+  c.beginPath(); c.ellipse(0, 6, 15, 22, 0, 0, Math.PI*2); c.fill(); c.stroke();
+  // sunglasses
+  c.fillStyle = "#0b0f1a";
+  c.beginPath(); c.roundRect ? c.roundRect(-11, -4, 9, 6, 2) : c.rect(-11,-4,9,6); c.fill();
+  c.beginPath(); c.roundRect ? c.roundRect(2, -4, 9, 6, 2) : c.rect(2,-4,9,6); c.fill();
+  c.strokeStyle = "#0b0f1a"; c.beginPath(); c.moveTo(-2,-1); c.lineTo(2,-1); c.stroke();
+  // hat
+  c.fillStyle = "#7a5230"; c.beginPath(); c.ellipse(0,-14,16,4,0,0,Math.PI*2); c.fill();
+  c.fillStyle = "#8a5f38"; c.beginPath(); c.roundRect ? c.roundRect(-10,-24,20,12,3) : c.rect(-10,-24,20,12); c.fill();
+  c.fillStyle = "#5e3f24"; c.fillRect(-10,-16,20,3);
+  c.restore();
+}
+
+/* ============================================================================
+   WIRING
+   ============================================================================ */
+function init() {
+  layout();
+  drawMascot(document.getElementById("mascot"));
+  renderBets();
+  updateHud();
+  setWin(0);
+  document.getElementById("refillAmt").textContent = CONFIG.refillAmount;
+  document.getElementById("muteBtn").textContent = State.muted ? "🔇" : "🔊";
+
+  document.getElementById("spinBtn").onclick = () => {
+    if (State.freeActive) return;
+    if (State.autoRemaining > 0) { stopAuto(); return; }
+    doSpin();
+  };
+  document.getElementById("maxBtn").onclick = () => {
+    if (State.spinning || State.freeActive) return;
+    State.bet = CONFIG.betOptions[CONFIG.betOptions.length - 1]; persist(); renderBets(); updateHud();
+  };
+  document.getElementById("autoBtn").onclick = () => {
+    if (State.freeActive) return;
+    if (State.autoRemaining > 0) { stopAuto(); return; }
+    State.autoRemaining = 10; updateAutoLabel();
+    if (!State.spinning) doSpin();
+  };
+  document.getElementById("muteBtn").onclick = () => {
+    State.muted = !State.muted; persist();
+    document.getElementById("muteBtn").textContent = State.muted ? "🔇" : "🔊";
+    if (!State.muted) { Sound.ensure(); Sound.stop(); }
+  };
+  document.getElementById("freeNanas").onclick = claimRefill;
+  document.getElementById("claimBtn").onclick = claimDailyBonus;
+  document.getElementById("infoBtn").onclick = () => document.getElementById("infoOverlay").classList.add("show");
+  document.getElementById("infoClose").onclick = () => document.getElementById("infoOverlay").classList.remove("show");
+  document.querySelectorAll(".overlay").forEach(o => o.addEventListener("click", e => { if (e.target === o && o.id !== "bonusOverlay") o.classList.remove("show"); }));
+
+  // Keyboard: space to spin.
+  window.addEventListener("keydown", e => { if (e.code === "Space") { e.preventDefault(); document.getElementById("spinBtn").click(); } });
+  window.addEventListener("resize", layout);
+
+  checkRefill(false);
+  checkDailyBonus();
+  requestAnimationFrame(frame);
+}
+document.addEventListener("DOMContentLoaded", init);
+</script>
+</body>
+</html>
