@@ -38,4 +38,4 @@ Matches the deployed hub: spins increment `game_plays_bumbana` (feeds "N plays a
 
 ## Development
 
-Everything is tunable from the `CONFIG` / `PAYTABLE` / `WEIGHTS` / `PAYLINES` constants at the top of the script in `bumbana.html`. Each reel cell is an independent weighted draw (`weightedPick`), so symbol/scatter/crate odds match `WEIGHTS` exactly. Tuned via a 1M-spin Monte Carlo to **~92% RTP, ~32% hit frequency, free spins ~1 in 106, airdrop ~1 in 265**.
+Everything is tunable from the `CONFIG` / `PAYTABLE` / `WEIGHTS` / `PAYLINES` constants at the top of the script in `bumbana.html`. Each reel cell is an independent weighted draw (`weightedPick`), so symbol/scatter/crate odds match `WEIGHTS` exactly. 2-of-a-kind pays small but frequently so most spins light up something. Tuned via a 1M-spin Monte Carlo to **~75% hit frequency (a win ~3 of every 4 spins), ~105% RTP** (free-play, deliberately generous), free spins ~1 in 105, airdrop ~1 in 268. Odds are fixed and identical for every player.
