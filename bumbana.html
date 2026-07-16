@@ -251,7 +251,8 @@
   .card h2 { margin: 4px 0 8px; font-size: 22px; }
   .card p { color: var(--muted); font-size: 13.5px; line-height: 1.6; margin: 8px 0; }
   .card .big { font-size: 30px; font-weight: 900; color: var(--gold); margin: 6px 0; }
-  .card .btn { margin-top: 14px; width: 100%; background: linear-gradient(90deg,var(--gold-2),var(--gold)); color:#3a2a00; }
+  .card .btn { margin-top: 14px; width: 100%; background: linear-gradient(90deg,var(--gold-2),var(--gold)); color:#3a2a00;
+    display: block; text-align: center; white-space: nowrap; }
   .daylist { display: flex; gap: 5px; justify-content: center; margin: 12px 0; flex-wrap: wrap; }
   .day { flex: 1 0 40px; background: var(--panel-2); border: 1px solid var(--edge); border-radius: 10px; padding: 7px 2px; font-size: 10px; }
   .day.claimed { opacity: .5; }
@@ -1038,7 +1039,7 @@ let sparkles = [];                         // ambient cabinet sparkles
 // Build a lookup of winning cells ("r,row") from the active winFlash for the symbol pop.
 function winningCellSet() {
   const s = new Set();
-  if (winFlash.t > 0) for (const lw of winFlash.lines) for (const c of lw.cells) s.add(c.r + "," + c.row);
+  if (winFlash.t > 0) for (const lw of winFlash.lines) { if (!lw || !lw.cells) continue; for (const c of lw.cells) s.add(c.r + "," + c.row); }
   return s;
 }
 
@@ -1323,7 +1324,7 @@ function drawReels(ts) {
       const left = (rv.stopAt - ts) / 1000;
       const decel = left < 0.36 ? Math.max(0.1, left / 0.36) : 1;   // matches frame() ease-out
       const speedBlur = Math.min(1, (rv.speed * decel) / 2600);
-      const stretch = 1 + speedBlur * 0.42;
+      const stretch = 1 + speedBlur * 0.32;
       const baseIdx = Math.floor(rv.offset / ROWH);
       for (let k = -1; k <= CONFIG.rows + 1; k++) {
         const idx = ((baseIdx + k) % total + total) % total;
@@ -1429,6 +1430,12 @@ function drawReels(ts) {
 /* Animation loop */
 let lastTs = 0;
 function frame(ts) {
+  try { frameBody(ts); }
+  catch (e) { if (window.console) console.error("frame error (recovered):", e); }
+  // Always keep the render loop alive — a single bad frame must never freeze the game.
+  requestAnimationFrame(frame);
+}
+function frameBody(ts) {
   if (!lastTs) lastTs = ts;
   const dt = Math.min(50, ts - lastTs) / 1000;
   lastTs = ts;
@@ -1466,7 +1473,6 @@ function frame(ts) {
     });
   }
   drawReels(ts);
-  requestAnimationFrame(frame);
 }
 let sparkleClock = 0;
 
