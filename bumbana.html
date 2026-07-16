@@ -5,12 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <meta name="theme-color" content="#0b0f1a" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
 <title>Bumbana — Free-play Slot</title>
 <meta name="description" content="Bumbana — spin the reels, stack the bananas. Free-play social casino slot. Virtual chips, no cash value." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='88'%3E%F0%9F%8D%8C%3C/text%3E%3C/svg%3E" />
 <style>
   /* ============================================================
      Bumbana — free-play social-casino slot for Bumbana Games Hub
@@ -84,15 +86,21 @@
   .bulbs {
     content: ""; position: absolute; inset: 1px; border-radius: 18px; pointer-events: none; z-index: 2;
     background:
-      radial-gradient(circle, #fff4cc 0 2px, #cf982c 2px 3.4px, transparent 3.8px) top left / 21px 21px repeat-x,
-      radial-gradient(circle, #fff4cc 0 2px, #cf982c 2px 3.4px, transparent 3.8px) bottom left / 21px 21px repeat-x,
-      radial-gradient(circle, #fff4cc 0 2px, #cf982c 2px 3.4px, transparent 3.8px) top left / 21px 21px repeat-y,
-      radial-gradient(circle, #fff4cc 0 2px, #cf982c 2px 3.4px, transparent 3.8px) top right / 21px 21px repeat-y;
-    animation: bulbGlow 1.3s ease-in-out infinite;
+      radial-gradient(circle, #fff4cc 0 2px, #cf982c 2px 3.4px, transparent 3.8px) repeat-x,
+      radial-gradient(circle, #fff4cc 0 2px, #cf982c 2px 3.4px, transparent 3.8px) repeat-x,
+      radial-gradient(circle, #fff4cc 0 2px, #cf982c 2px 3.4px, transparent 3.8px) repeat-y,
+      radial-gradient(circle, #fff4cc 0 2px, #cf982c 2px 3.4px, transparent 3.8px) repeat-y;
+    background-size: 21px 21px;
+    background-position: 0 0, 0 100%, 0 0, 100% 0;
+    animation: bulbGlow 1.3s ease-in-out infinite, bulbRun 1.05s linear infinite;
   }
   @keyframes bulbGlow {
     0%,100% { filter: brightness(.8) drop-shadow(0 0 3px rgba(255,210,90,.5)); }
     50% { filter: brightness(1.4) drop-shadow(0 0 8px rgba(255,225,140,.95)); }
+  }
+  /* Bulbs chase clockwise around the cabinet (one bulb-spacing per loop). */
+  @keyframes bulbRun {
+    to { background-position: 21px 0, -21px 100%, 0 -21px, 100% 21px; }
   }
   .slot::before {
     content: ""; position: absolute; inset: 12px; border-radius: 13px; pointer-events: none; z-index: 1;
@@ -560,6 +568,35 @@ const Sound = {
   win() { [523,659,784].forEach((f,i)=>setTimeout(()=>this.blip(f,.18,"triangle",.1),i*70)); },
   big() { [523,659,784,1046,1318].forEach((f,i)=>setTimeout(()=>this.blip(f,.25,"triangle",.12),i*90)); },
   coin() { this.blip(880 + Math.random()*200, .08, "sine", .05); },
+  // UI click.
+  click() { this.blip(660, .05, "square", .05); },
+  // Reel stop: a short pitched "thunk" (drop + click) — one per reel.
+  reelStop() {
+    if (State.muted) return; this.ensure(); if (!this.ctx) return;
+    const t = this.ctx.currentTime, o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = "sine"; o.frequency.setValueAtTime(300, t); o.frequency.exponentialRampToValueAtTime(90, t + .09);
+    g.gain.setValueAtTime(.14, t); g.gain.exponentialRampToValueAtTime(.0001, t + .12);
+    o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t + .13);
+    this.blip(1200, .03, "square", .04);
+  },
+  // Rising tension riser while the last reel could complete a scatter.
+  anticipation() {
+    if (State.muted) return; this.ensure(); if (!this.ctx) return;
+    const t = this.ctx.currentTime, o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = "sawtooth"; o.frequency.setValueAtTime(220, t); o.frequency.exponentialRampToValueAtTime(880, t + 1.0);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.06, t + .1);
+    g.gain.setValueAtTime(.06, t + .85); g.gain.exponentialRampToValueAtTime(.0001, t + 1.1);
+    o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t + 1.15);
+  },
+  // Jackpot bell cascade.
+  jackpot() {
+    [1046,1318,1568,2093,1568,2093,2637].forEach((f,i)=>setTimeout(()=>{ this.blip(f,.4,"triangle",.13); this.blip(f*2,.3,"sine",.05); }, i*110));
+  },
+  // Sparkly coin cascade to ride the coin shower.
+  coinCascade(n) {
+    const c = Math.min(14, n);
+    for (let i = 0; i < c; i++) setTimeout(() => this.coin(), 60 + i * 55);
+  },
 };
 
 /* ============================================================================
@@ -749,6 +786,15 @@ const reelView = REEL_STRIPS.map((strip, i) => ({
 let winFlash = { lines: [], t: 0 };       // winning lines to highlight
 let particles = [];                        // coin shower
 let anticipationReel = -1;
+let screenFlash = { t: 0, dur: 1, color: "255,210,90" }; // big-win full-canvas flash
+let sparkles = [];                         // ambient cabinet sparkles
+
+// Build a lookup of winning cells ("r,row") from the active winFlash for the symbol pop.
+function winningCellSet() {
+  const s = new Set();
+  if (winFlash.t > 0) for (const lw of winFlash.lines) for (const c of lw.cells) s.add(c.r + "," + c.row);
+  return s;
+}
 
 function drawCoin(coin, cx, cy, size) {
   const r = size * 0.44;
@@ -816,6 +862,8 @@ function drawReels(ts) {
   ctx.restore();
 
   const size = CELL * 0.6;
+  const winSet = winningCellSet();
+  const glowPulse = 0.5 + 0.5 * Math.sin(ts / 110);
   for (let r = 0; r < CONFIG.reels; r++) {
     const rv = reelView[r];
     const x = GRIDX + r * CELL + CELL / 2;
@@ -834,17 +882,34 @@ function drawReels(ts) {
         const y = GRIDY + k * ROWH - (rv.offset % ROWH) + ROWH / 2;
         drawSymbol(sym, x, y, size, 1 - speedBlur * 0.45);
       }
-      // Anticipation glow on the highlighted reel.
+      // Anticipation: pulsing purple glow + inner shimmer on the highlighted reel.
       if (r === anticipationReel) {
-        ctx.strokeStyle = "rgba(168,85,247,.9)"; ctx.lineWidth = 3;
+        ctx.save();
+        ctx.strokeStyle = "rgba(168,85,247," + (0.5 + 0.5 * glowPulse) + ")"; ctx.lineWidth = 3 + 2 * glowPulse;
+        ctx.shadowColor = "rgba(168,85,247,.9)"; ctx.shadowBlur = 12 + 16 * glowPulse;
         ctx.strokeRect(GRIDX + r*CELL + 2, GRIDY + 2, CELL - 4, ROWH*CONFIG.rows - 4);
+        ctx.restore();
       }
     } else {
-      // Stopped: show result, with tiny settle bounce.
+      // Stopped: show result, with tiny settle bounce and a pop/glow on winning cells.
       const bounce = rv.bounce ? Math.sin(rv.bounce * Math.PI) * 6 * (1 - rv.bounceT) : 0;
       for (let row = 0; row < CONFIG.rows; row++) {
         const y = GRIDY + row * ROWH + ROWH / 2 + (rv.stopped ? bounce : 0);
-        drawSymbol(rv.result[row], x, y, size);
+        if (winSet.has(r + "," + row)) {
+          const pop = 1 + 0.14 * glowPulse;
+          ctx.save();
+          // golden halo behind the winning symbol
+          const gr = ctx.createRadialGradient(x, y, size*0.1, x, y, size*0.95);
+          gr.addColorStop(0, "rgba(255,214,102," + (0.30 + 0.30*glowPulse) + ")");
+          gr.addColorStop(1, "rgba(255,214,102,0)");
+          ctx.fillStyle = gr;
+          ctx.beginPath(); ctx.arc(x, y, size*0.95, 0, Math.PI*2); ctx.fill();
+          ctx.shadowColor = "rgba(255,210,90,.95)"; ctx.shadowBlur = 18 + 10*glowPulse;
+          drawSymbol(rv.result[row], x, y, size * pop);
+          ctx.restore();
+        } else {
+          drawSymbol(rv.result[row], x, y, size);
+        }
       }
     }
     ctx.restore();
@@ -874,14 +939,36 @@ function drawReels(ts) {
     }
   }
 
-  // Coin shower particles.
+  // Ambient sparkles drifting inside the cabinet.
+  if (sparkles.length) {
+    for (const s of sparkles) {
+      const a = Math.max(0, Math.sin(s.life * Math.PI)) * 0.9;
+      ctx.save(); ctx.globalAlpha = a;
+      ctx.fillStyle = s.c; ctx.shadowColor = s.c; ctx.shadowBlur = 6;
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  // Coin shower particles (with spin + glow).
   if (particles.length) {
     for (const p of particles) {
       ctx.save(); ctx.globalAlpha = Math.max(0, p.life);
+      ctx.translate(p.x, p.y); ctx.rotate(p.rot || 0);
       ctx.font = `${p.size}px system-ui, "Apple Color Emoji"`;
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText(p.e, p.x, p.y); ctx.restore();
+      ctx.fillText(p.e, 0, 0); ctx.restore();
     }
+  }
+
+  // Big-win full-canvas flash.
+  if (screenFlash.t > 0) {
+    const a = (screenFlash.t / screenFlash.dur);
+    ctx.save();
+    ctx.globalAlpha = 0.55 * a * a;
+    ctx.fillStyle = "rgba(" + screenFlash.color + ",1)";
+    ctx.fillRect(0, 0, 720, 440);
+    ctx.restore();
   }
 }
 
@@ -902,25 +989,44 @@ function frame(ts) {
     }
   }
   if (winFlash.t > 0) winFlash.t -= dt;
+  if (screenFlash.t > 0) screenFlash.t -= dt;
   if (particles.length) {
-    for (const p of particles) { p.vy += 900 * dt; p.y += p.vy * dt; p.x += p.vx * dt; p.life -= dt * 0.5; }
+    for (const p of particles) { p.vy += 900 * dt; p.y += p.vy * dt; p.x += p.vx * dt; p.rot = (p.rot || 0) + (p.spin || 0) * dt; p.life -= dt * 0.5; }
     particles = particles.filter(p => p.life > 0 && p.y < 480);
+  }
+  // Ambient sparkles: keep a small drifting population inside the cabinet.
+  for (const s of sparkles) { s.y -= s.vy * dt; s.x += s.vx * dt; s.life -= dt * s.fade; }
+  sparkles = sparkles.filter(s => s.life > 0);
+  sparkleClock -= dt;
+  if (sparkleClock <= 0 && sparkles.length < 18) {
+    sparkleClock = 0.18 + Math.random() * 0.22;
+    sparkles.push({
+      x: GRIDX + 8 + Math.random() * (CELL * CONFIG.reels - 16),
+      y: GRIDY + Math.random() * (ROWH * CONFIG.rows),
+      vx: (Math.random() - 0.5) * 14, vy: 8 + Math.random() * 16,
+      r: 0.8 + Math.random() * 1.8, life: 1, fade: 0.5 + Math.random() * 0.5,
+      c: Math.random() < 0.5 ? "#fff2b8" : "#ffe08a",
+    });
   }
   drawReels(ts);
   requestAnimationFrame(frame);
 }
+let sparkleClock = 0;
 
 function stopReel(rv) {
   rv.spinning = false; rv.stopped = true; rv.bounce = 1; rv.bounceT = 0; rv.offset = 0;
-  Sound.stop();
+  Sound.reelStop();
 }
 
+const COIN_EMOJI = ["🍌", "💸", "🪙", "💰", "⭐"];
 function spawnCoins(n) {
   for (let i = 0; i < n; i++) {
     particles.push({
       x: 120 + Math.random() * 480, y: 40 + Math.random() * 60,
-      vx: (Math.random() - 0.5) * 120, vy: -50 - Math.random() * 120,
-      e: Math.random() < 0.5 ? "🍌" : "💸", size: 22 + Math.random() * 14, life: 1.4,
+      vx: (Math.random() - 0.5) * 160, vy: -60 - Math.random() * 160,
+      e: COIN_EMOJI[Math.floor(Math.random() * COIN_EMOJI.length)],
+      size: 20 + Math.random() * 18, life: 1.4,
+      rot: Math.random() * Math.PI * 2, spin: (Math.random() - 0.5) * 10,
     });
   }
 }
@@ -974,7 +1080,7 @@ async function doSpin() {
     rv.result = grid[i].slice();
     // stagger stop left -> right
     let stopDelay = 700 + i * 320;
-    if (i === CONFIG.reels - 1 && scattersInFirst >= 2) { stopDelay += 1000; anticipationReel = i; }
+    if (i === CONFIG.reels - 1 && scattersInFirst >= 2) { stopDelay += 1000; anticipationReel = i; Sound.anticipation(); }
     rv.stopAt = now + stopDelay;
   });
 
@@ -994,12 +1100,21 @@ function finishSpin(result, bet, wasFree) {
     setWin(win);
     winFlash = { lines: result.lineWins, t: 2.6 };
     if (win > State.biggestWin) State.biggestWin = win;
-    Sound.win();
-    spawnCoins(Math.min(40, 8 + Math.floor(win / bet)));
-    // celebrations
-    if (result.jackpot) showWinBanner("🎩 JACKPOT!", win), Sound.big();
-    else if (win >= bet * CONFIG.megaWinMult) showWinBanner("MEGA WIN", win), Sound.big();
-    else if (win >= bet * CONFIG.bigWinMult) showWinBanner("BIG WIN", win), Sound.big();
+    const nCoins = Math.min(60, 8 + Math.floor(win / bet));
+    spawnCoins(nCoins);
+    // celebrations, scaled to the win tier
+    if (result.jackpot) {
+      showWinBanner("🎩 JACKPOT!", win); Sound.jackpot();
+      screenFlash = { t: 0.9, dur: 0.9, color: "255,214,102" }; spawnCoins(50); Sound.coinCascade(14);
+    } else if (win >= bet * CONFIG.megaWinMult) {
+      showWinBanner("MEGA WIN", win); Sound.big();
+      screenFlash = { t: 0.7, dur: 0.7, color: "255,214,102" }; Sound.coinCascade(12);
+    } else if (win >= bet * CONFIG.bigWinMult) {
+      showWinBanner("BIG WIN", win); Sound.big();
+      screenFlash = { t: 0.5, dur: 0.5, color: "255,225,150" }; Sound.coinCascade(8);
+    } else {
+      Sound.win(); Sound.coinCascade(Math.min(6, Math.ceil(nCoins / 5)));
+    }
   } else {
     winFlash = { lines: [], t: 0 };
   }
@@ -1268,15 +1383,17 @@ function init() {
   document.getElementById("spinBtn").onclick = () => {
     if (State.freeActive) return;
     if (State.autoRemaining > 0) { stopAuto(); return; }
-    doSpin();
+    Sound.click(); doSpin();
   };
   document.getElementById("maxBtn").onclick = () => {
     if (State.spinning || State.freeActive) return;
+    Sound.click();
     State.bet = CONFIG.betOptions[CONFIG.betOptions.length - 1]; persist(); renderBets(); updateHud();
   };
   document.getElementById("autoBtn").onclick = () => {
     if (State.freeActive) return;
     if (State.autoRemaining > 0) { stopAuto(); return; }
+    Sound.click();
     State.autoRemaining = 10; updateAutoLabel();
     if (!State.spinning) doSpin();
   };
