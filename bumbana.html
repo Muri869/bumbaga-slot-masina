@@ -193,6 +193,46 @@
   .free-nanas.show { display: block; animation: pulse 1.4s infinite; }
   @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.02)} }
 
+  /* ---- Cash-out button + celebration ---- */
+  .cashout-btn {
+    display: block; width: 100%; margin-top: 2px;
+    background: linear-gradient(90deg,#0e1524,#182034); color: var(--gold);
+    border: 1px solid rgba(244,197,66,.4); border-radius: 12px; padding: 11px;
+    font-weight: 800; letter-spacing: .5px; cursor: pointer; transition: .15s;
+  }
+  .cashout-btn:hover { border-color: var(--gold); box-shadow: 0 6px 18px rgba(244,197,66,.22); }
+  .cashout-btn:active { transform: scale(.98); }
+  .cashout-btn.ready { animation: cashglow 1.6s infinite; border-color: var(--gold);
+    background: linear-gradient(90deg,#1c2540,#2a2410); }
+  .cashout-btn #cashoutHint { color: var(--muted); font-weight: 600; }
+  @keyframes cashglow { 0%,100%{box-shadow:0 0 0 rgba(244,197,66,0)} 50%{box-shadow:0 6px 22px rgba(244,197,66,.45)} }
+
+  .cashout-card { max-width: 400px; }
+  .cashout-badge {
+    display: inline-block; font-size: 10px; letter-spacing: 2px; font-weight: 800;
+    color: #06210f; background: linear-gradient(90deg,var(--gold-2),var(--gold));
+    padding: 4px 12px; border-radius: 999px; margin-bottom: 6px;
+  }
+  .cashout-amount { font-size: 40px; font-weight: 900; color: var(--green);
+    text-shadow: 0 0 22px rgba(34,197,94,.5); margin: 2px 0; }
+  .cashout-amount .cashout-unit { font-size: 18px; color: var(--muted); }
+  .cashout-sub { margin: 0 0 12px !important; }
+  .cashout-rows { display: flex; flex-direction: column; gap: 6px; margin: 12px 0;
+    background: var(--panel-2); border: 1px solid var(--edge); border-radius: 12px; padding: 10px 14px; }
+  .cashout-rows > div { display: flex; justify-content: space-between; font-size: 13px; }
+  .cashout-rows span { color: var(--muted); }
+  .cashout-rows b { color: var(--gold); font-variant-numeric: tabular-nums; }
+  .cashout-wallet { font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+  .cashout-wallet code { color: var(--gold-2); background: var(--panel-2);
+    border: 1px solid var(--edge); border-radius: 7px; padding: 3px 7px; font-size: 12px; }
+  .cashout-note { font-size: 11.5px !important; color: var(--muted) !important;
+    background: rgba(34,197,94,.07); border: 1px solid rgba(34,197,94,.2);
+    border-radius: 10px; padding: 8px 10px; margin: 12px 0 4px !important; }
+  .cashout-note b { color: #b9c6db; }
+  .cashout-actions { display: flex; gap: 8px; }
+  .cashout-actions .btn { flex: 1; margin-top: 12px; }
+  .cashout-actions .btn.ghost { background: var(--panel); color: var(--text); border: 1px solid var(--edge); }
+
   /* ---- Footer / guardrail ---- */
   .guardrail { text-align: center; color: var(--muted); font-size: 10.5px; line-height: 1.5; padding: 4px 6px; }
   .guardrail b { color: #b9c6db; }
@@ -304,6 +344,8 @@
     </div>
   </div>
 
+  <button class="cashout-btn" id="cashoutBtn">💰 CASH OUT <span id="cashoutHint">— bank your winnings</span></button>
+
   <div class="guardrail">
     <b>For entertainment only. Virtual chips (Nanas 🍌), no cash value. Not real-money gambling.</b><br>
     Samo za zabavo. Virtualni žetoni brez denarne vrednosti. Ni igra na srečo za pravi denar.
@@ -346,6 +388,30 @@
     <div class="airdrop-grid" id="airdropGrid"></div>
     <p style="font-size:11px; color:var(--muted)">Prizes are virtual Nanas 🍌 — no cash value, just for fun.</p>
     <button class="btn" id="airdropCollect" style="display:none">Collect</button>
+  </div>
+</div>
+
+<!-- Cash-out celebration overlay (free-play: banks winnings into your Bumbana Wallet, no real cash) -->
+<div class="overlay" id="cashoutOverlay">
+  <div class="card cashout-card">
+    <div class="cashout-badge">🍌 BUMBANA WALLET</div>
+    <div class="big">💰 Cash Out</div>
+    <div class="cashout-amount"><span id="cashoutAmount">0</span> <span class="cashout-unit">Nanas</span></div>
+    <p class="cashout-sub" id="cashoutSub">banked from this session</p>
+    <div class="cashout-rows">
+      <div><span>Balance</span><b id="cashoutBalance">0</b></div>
+      <div><span>Biggest win</span><b id="cashoutBiggest">0</b></div>
+      <div><span>Best ever</span><b id="cashoutBest">0</b></div>
+    </div>
+    <div class="cashout-wallet">
+      Transfer to wallet:
+      <code id="cashoutWallet">bumbana:0x🍌…</code>
+    </div>
+    <p class="cashout-note">🍌 Your <b>Bumbana Wallet</b> is in-game only. Nanas are virtual chips with <b>no cash value</b> — there is no real-money or crypto payout. This is just for fun.</p>
+    <div class="cashout-actions">
+      <button class="btn" id="cashoutShare">📣 Share my win</button>
+      <button class="btn ghost" id="cashoutClose">Keep spinning</button>
+    </div>
   </div>
 </div>
 
@@ -1714,6 +1780,7 @@ function fmt(n) { return Math.round(n).toLocaleString("en-US"); }
 function updateHud() {
   document.getElementById("balanceVal").textContent = fmt(State.balance);
   document.getElementById("betVal").textContent = fmt(State.bet);
+  updateCashoutBtn();
 }
 function setWin(n) { State.lastWin = n; document.getElementById("winVal").textContent = fmt(n); }
 function pulseWin() {
@@ -1740,6 +1807,62 @@ function showWinBanner(kind, amt) {
   b.classList.remove("show"); void b.offsetWidth; b.classList.add("show");
   clearTimeout(winBannerTimer);
   winBannerTimer = setTimeout(() => b.classList.remove("show"), 2200);
+}
+
+// --- Cash Out (free-play): a celebratory "bank your winnings" summary.
+// It is NOT a real payout. Nanas have no cash value; there is no crypto/cash
+// transfer. The "Bumbana Wallet" is a playful in-game label only.
+function bumbanaWalletId() {
+  // A stable, obviously-playful in-game wallet tag derived from the best score.
+  let id = Store.gGet("walletId", "");
+  if (!id) {
+    const hex = "0123456789abcdef";
+    let s = "";
+    for (let i = 0; i < 8; i++) s += hex[(State.best * 7 + i * 31 + 13) % 16];
+    id = "bumbana:0x" + s + "🍌";
+    Store.gSet("walletId", id);
+  }
+  return id;
+}
+function updateCashoutBtn() {
+  const btn = document.getElementById("cashoutBtn");
+  if (!btn) return;
+  const hint = document.getElementById("cashoutHint");
+  if (State.winMeter > 0) {
+    btn.classList.add("ready");
+    hint.textContent = "— " + fmt(State.winMeter) + " Nanas won";
+  } else {
+    btn.classList.remove("ready");
+    hint.textContent = "— bank your winnings";
+  }
+}
+function openCashout() {
+  Sound.ensure(); Sound.click();
+  document.getElementById("cashoutAmount").textContent = fmt(State.winMeter);
+  document.getElementById("cashoutSub").textContent = State.winMeter > 0
+    ? "banked from this session" : "spin to win some Nanas first!";
+  document.getElementById("cashoutBalance").textContent = fmt(State.balance);
+  document.getElementById("cashoutBiggest").textContent = fmt(State.biggestWin);
+  document.getElementById("cashoutBest").textContent = fmt(State.best);
+  document.getElementById("cashoutWallet").textContent = bumbanaWalletId();
+  document.getElementById("cashoutOverlay").classList.add("show");
+  if (State.winMeter > 0) { spawnCoins(30); Sound.coinCascade(8); Sound.big(); }
+}
+async function shareWin() {
+  Sound.click();
+  const amt = fmt(State.winMeter), big = fmt(State.biggestWin);
+  const text = "🍌 I stacked " + amt + " Nanas on Bumbana (biggest win " + big +
+    ")! Free-play slot — spin the reels: ";
+  const url = "https://muri869.github.io/bumbaga-slot-masina/bumbana.html";
+  try {
+    if (navigator.share) { await navigator.share({ title: "Bumbana", text, url }); return; }
+  } catch (e) { /* user cancelled — fall through to clipboard */ }
+  try {
+    await navigator.clipboard.writeText(text + url);
+    toast("Copied — paste it anywhere to share! 🍌");
+  } catch (e) {
+    toast("Share: " + url);
+  }
 }
 
 let toastTimer = null;
@@ -1812,6 +1935,9 @@ function init() {
   document.getElementById("claimBtn").onclick = claimDailyBonus;
   document.getElementById("infoBtn").onclick = () => document.getElementById("infoOverlay").classList.add("show");
   document.getElementById("infoClose").onclick = () => document.getElementById("infoOverlay").classList.remove("show");
+  document.getElementById("cashoutBtn").onclick = openCashout;
+  document.getElementById("cashoutClose").onclick = () => document.getElementById("cashoutOverlay").classList.remove("show");
+  document.getElementById("cashoutShare").onclick = shareWin;
   document.querySelectorAll(".overlay").forEach(o => o.addEventListener("click", e => { if (e.target === o && o.id !== "bonusOverlay" && o.id !== "airdropOverlay") o.classList.remove("show"); }));
 
   // Keyboard: space to spin.
