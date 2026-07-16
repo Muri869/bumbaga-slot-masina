@@ -814,36 +814,76 @@ const Music = {
     }
   },
   setIntense(v) { this.intense = v; this.tempo = v ? 132 : 124; },
-  // The catchy "Bumbana" lead hook: same bouncy rhythm every bar, pitched to the
-  // chord, so it's instantly recognisable. Steps are 16ths within each bar.
+  // The "Bumbana" anthem hook — an 8-bar melody in two phrases over the same
+  // Am-F-C-G chords: phrase A "calls", phrase B "answers" higher and resolves,
+  // so it reads as a real tune, not a 1-bar loop. Rhythm = 16ths within a bar.
   leadRhythm: [0, 3, 6, 8, 11, 14],
-  leadNotes: [
-    [76, 81, 84, 81, 84, 76], // Am: E A C
-    [77, 81, 84, 81, 84, 77], // F:  F A C
-    [76, 79, 84, 79, 84, 76], // C:  E G C
-    [74, 79, 83, 79, 83, 74], // G:  D G B
+  leadPhrases: [
+    [ // phrase A — the call
+      [69, 72, 76, 72, 74, 72], // Am: A C E C D C
+      [69, 72, 77, 72, 74, 72], // F:  A C F C D C
+      [67, 72, 76, 72, 74, 71], // C:  G C E C D B
+      [67, 71, 74, 79, 74, 71], // G:  G B D G D B  (lift)
+    ],
+    [ // phrase B — the triumphant answer
+      [76, 81, 84, 81, 79, 76], // Am: E A C(hi) A G E
+      [77, 81, 84, 81, 79, 77], // F:  F A C A G F
+      [76, 79, 84, 79, 76, 72], // C:  E G C(hi) G E C
+      [74, 79, 83, 86, 83, 79], // G:  D G B D(hi) B G  (climax)
+    ],
   ],
   scheduler() {
     if (!this.playing) return;
     const st = (60 / this.tempo) / 4; // one 16th note
     while (this.nextTime < this.ctx.currentTime + this.lookahead) {
       this.scheduleStep(this.step, this.nextTime);
-      this.nextTime += st; this.step = (this.step + 1) % 64;
+      this.nextTime += st; this.step = (this.step + 1) % 128; // 8-bar loop
     }
     this.timer = setTimeout(() => this.scheduler(), 25);
   },
   scheduleStep(step, time) {
-    const bar = Math.floor(step / 16), chord = this.prog[bar], s = step % 16;
+    const bar = Math.floor(step / 16) % 4, phrase = Math.floor(step / 64), chord = this.prog[bar], s = step % 16;
     // DRUMS (punch straight through to master)
     if (s % 4 === 0) { this.kick(time); this.duck(time); }   // four-on-the-floor + sidechain pump
     if (s === 4 || s === 12) this.clap(time);                // claps on 2 & 4
     if (s % 2 === 1) this.hat(time, s % 4 === 3 ? 0.32 : 0.18);
+    // Off-beat open-hat shimmer on the busier "answer" phrase
+    if (phrase === 1 && s === 2) this.hat(time, 0.22);
     // HARMONY / BASS / LEAD (through the pump bus)
     if (s === 0) this.pad(chord, time);
     if (s % 2 === 0) this.bass(chord.root + (s % 4 === 2 ? 7 : 0), time);   // driving 8th-note root/fifth
-    if (this.intense && s % 2 === 0) this.tone(this.mtof(chord.arp[(s/2) % 4] + 12), time, 0.11, "square", 0.09);
+    // Continuous plucky arp fills the gaps between lead notes → produced "movement"
+    if (this.leadRhythm.indexOf(s) < 0 && s % 2 === 0) this.arp(chord.arp[(s / 2) % 4] + 12, time);
+    if (this.intense && s % 4 === 2) this.tone(this.mtof(chord.arp[(s / 2) % 4] + 24), time, 0.1, "square", 0.06);
+    // The lead hook
     const li = this.leadRhythm.indexOf(s);
-    if (li >= 0) this.lead(this.leadNotes[bar][li], time);
+    if (li >= 0) this.lead(this.leadPhrases[phrase][bar][li], time);
+    // A rising riser sweeps the last two beats of the 8-bar loop back into bar 1
+    if (step === 120) this.riser(time);
+  },
+  // Quiet plucked arpeggio note — the shimmer layer under the hook.
+  arp(note, time) {
+    const f = this.mtof(note);
+    const o = this.ctx.createOscillator(), flt = this.ctx.createBiquadFilter(), g = this.ctx.createGain();
+    o.type = "triangle"; o.frequency.value = f;
+    flt.type = "lowpass"; flt.frequency.setValueAtTime(this.intense ? 5200 : 3600, time);
+    flt.frequency.exponentialRampToValueAtTime(1200, time + 0.14); flt.Q.value = 4;
+    g.gain.setValueAtTime(0, time); g.gain.linearRampToValueAtTime(0.055, time + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, time + 0.16);
+    o.connect(flt); flt.connect(g); g.connect(this.pump);
+    o.start(time); o.stop(time + 0.18);
+  },
+  // White-noise + pitch riser that builds tension into the downbeat.
+  riser(time) {
+    const dur = (60 / this.tempo) * 2; // two beats
+    const s = this.ctx.createBufferSource(); s.buffer = this.noise(); s.loop = true;
+    const bp = this.ctx.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 1.2;
+    bp.frequency.setValueAtTime(700, time); bp.frequency.exponentialRampToValueAtTime(7000, time + dur);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0, time); g.gain.linearRampToValueAtTime(0.09, time + dur * 0.85);
+    g.gain.exponentialRampToValueAtTime(0.0001, time + dur + 0.05);
+    s.connect(bp); bp.connect(g); g.connect(this.master);
+    s.start(time); s.stop(time + dur + 0.1);
   },
   // sidechain duck — dips the pump bus on each kick, then swells back
   duck(time) {
