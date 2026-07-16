@@ -831,7 +831,16 @@ function stripCoinCard(img) {
     for (const i of clear) d[i+3] = 0;
   }
   g.putImageData(px, 0, 0);
-  return c;
+  // Tight bounding box of the remaining (opaque) coin, so it can be scaled to
+  // fill the medallion recess regardless of how much padding the source had.
+  let minX = w, minY = h, maxX = 0, maxY = 0, any = false;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (d[(y*w + x)*4 + 3] > 40) { any = true;
+      if (x < minX) minX = x; if (x > maxX) maxX = x;
+      if (y < minY) minY = y; if (y > maxY) maxY = y; }
+  }
+  if (!any) { minX = minY = 0; maxX = w-1; maxY = h-1; }
+  return { c, bx: minX, by: minY, bw: (maxX - minX + 1), bh: (maxY - minY + 1) };
 }
 for (const _k in COIN_SRC) {
   const _im = new Image();
@@ -957,7 +966,39 @@ function medallionBase(cx, cy, size, variant) {
   ctx.restore();
   return D;
 }
-function clipRecess(cx, cy, D) { ctx.beginPath(); ctx.arc(cx, cy, D*0.365*0.99, 0, Math.PI*2); ctx.clip(); }
+const RECESS_R = 0.365;
+function clipRecess(cx, cy, D) { ctx.beginPath(); ctx.arc(cx, cy, D*RECESS_R*0.99, 0, Math.PI*2); ctx.clip(); }
+
+// Draw a coin logo scaled to FILL the recess (uses its tight bbox so there is
+// no dark gap around small logos). Accepts a {c,bx,by,bw,bh} entry or a raw <img>.
+function fillRecess(entry, cx, cy, D) {
+  const rd = D * RECESS_R * 2 * 0.98;
+  ctx.save(); clipRecess(cx, cy, D);
+  if (entry && entry.c) {
+    const scale = rd / Math.max(entry.bw, entry.bh);
+    const dw = entry.bw * scale, dh = entry.bh * scale;
+    ctx.drawImage(entry.c, entry.bx, entry.by, entry.bw, entry.bh, cx - dw/2, cy - dh/2, dw, dh);
+  } else if (entry) {
+    ctx.drawImage(entry, cx - rd/2, cy - rd/2, rd, rd);
+  }
+  ctx.restore();
+}
+
+// Static glossy dome highlight — makes the recess read as a convex, minted coin.
+function medallionGloss(cx, cy, D) {
+  const r = D * RECESS_R;
+  ctx.save(); clipRecess(cx, cy, D);
+  const gy = cy - r*0.4;
+  const gl = ctx.createRadialGradient(cx, gy, r*0.05, cx, gy, r*0.95);
+  gl.addColorStop(0, "rgba(255,255,255,0.26)"); gl.addColorStop(0.5, "rgba(255,255,255,0.07)"); gl.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = gl; ctx.beginPath(); ctx.ellipse(cx, gy, r*0.82, r*0.5, 0, 0, Math.PI*2); ctx.fill();
+  // subtle inner-bottom shadow for depth
+  const sh = ctx.createLinearGradient(0, cy + r*0.2, 0, cy + r);
+  sh.addColorStop(0, "rgba(0,0,0,0)"); sh.addColorStop(1, "rgba(0,0,0,0.32)");
+  ctx.fillStyle = sh; ctx.fillRect(cx - r, cy, r*2, r*1.1);
+  ctx.restore();
+}
+
 function medallionShine(cx, cy, D) {
   ctx.save();
   ctx.beginPath(); ctx.arc(cx, cy, D*0.485, 0, Math.PI*2); ctx.clip();
@@ -965,18 +1006,16 @@ function medallionShine(cx, cy, D) {
   const sweep = ((animClock / 2800 + phase) % 1);
   const sxp = cx - D*0.62 + sweep * D*1.24;
   const sh = ctx.createLinearGradient(sxp - D*0.16, cy - D*0.5, sxp + D*0.16, cy + D*0.5);
-  sh.addColorStop(0, "rgba(255,255,255,0)"); sh.addColorStop(0.5, "rgba(255,255,255,0.22)"); sh.addColorStop(1, "rgba(255,255,255,0)");
+  sh.addColorStop(0, "rgba(255,255,255,0)"); sh.addColorStop(0.5, "rgba(255,255,255,0.20)"); sh.addColorStop(1, "rgba(255,255,255,0)");
   ctx.fillStyle = sh; ctx.fillRect(cx - D/2, cy - D/2, D, D);
   ctx.restore();
 }
 
-// Coin logo inside a gold medallion.
-function drawMedallion(src, cx, cy, size) {
+// Coin logo inside a gold medallion (filled recess + gloss dome + shine).
+function drawMedallion(entry, cx, cy, size) {
   const D = medallionBase(cx, cy, size, "coin");
-  ctx.save(); clipRecess(cx, cy, D);
-  const ld = D * 0.365 * 2 * 0.94;
-  ctx.drawImage(src, cx - ld/2, cy - ld/2, ld, ld);
-  ctx.restore();
+  fillRecess(entry, cx, cy, D);
+  medallionGloss(cx, cy, D);
   medallionShine(cx, cy, D);
 }
 
@@ -994,6 +1033,7 @@ function drawSymbol(id, cx, cy, size, alpha) {
     ctx.fillStyle = "#ffe487"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillText("WILD", cx, cy + D*0.27);
     ctx.restore();
+    medallionGloss(cx, cy, D);
     medallionShine(cx, cy, D);
   } else if (s.coinImg && (coinClean[s.coinImg] || (coinImgs[s.coinImg] && coinImgs[s.coinImg].complete && coinImgs[s.coinImg].naturalWidth))) {
     drawMedallion(coinClean[s.coinImg] || coinImgs[s.coinImg], cx, cy, size);
@@ -1002,10 +1042,11 @@ function drawSymbol(id, cx, cy, size, alpha) {
     const variant = s.scatter ? "scatter" : (s.crate ? "crate" : "coin");
     const D = medallionBase(cx, cy, size, variant);
     ctx.save(); clipRecess(cx, cy, D);
-    ctx.font = `${D*0.4}px system-ui, "Apple Color Emoji", "Segoe UI Emoji"`;
+    ctx.font = `${D*0.42}px system-ui, "Apple Color Emoji", "Segoe UI Emoji"`;
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillText(s.coin.glyph, cx, cy + D*0.03);
     ctx.restore();
+    medallionGloss(cx, cy, D);
     medallionShine(cx, cy, D);
   } else if (s.coinImg) {
     // Image not yet decoded — neutral placeholder coin so nothing renders as text.
