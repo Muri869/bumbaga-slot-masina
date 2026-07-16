@@ -1126,15 +1126,21 @@ function drawReels(ts) {
     ctx.beginPath(); ctx.rect(GRIDX + r * CELL, GRIDY, CELL, ROWH * CONFIG.rows); ctx.clip();
 
     if (rv.spinning) {
-      // Scrolling blur of random strip symbols.
+      // Scrolling symbols with speed-reactive vertical motion blur.
       const total = rv.strip.length;
-      const speedBlur = Math.min(1, rv.speed / 2600);
+      const left = (rv.stopAt - ts) / 1000;
+      const decel = left < 0.36 ? Math.max(0.1, left / 0.36) : 1;   // matches frame() ease-out
+      const speedBlur = Math.min(1, (rv.speed * decel) / 2600);
+      const stretch = 1 + speedBlur * 0.42;
       const baseIdx = Math.floor(rv.offset / ROWH);
       for (let k = -1; k <= CONFIG.rows + 1; k++) {
         const idx = ((baseIdx + k) % total + total) % total;
         const sym = rv.scroll[idx];
         const y = GRIDY + k * ROWH - (rv.offset % ROWH) + ROWH / 2;
-        drawSymbol(sym, x, y, size, 1 - speedBlur * 0.45);
+        ctx.save();
+        ctx.translate(x, y); ctx.scale(1, stretch);
+        drawSymbol(sym, 0, 0, size, 1 - speedBlur * 0.5);
+        ctx.restore();
       }
       // Anticipation: pulsing purple glow + inner shimmer on the highlighted reel.
       if (r === anticipationReel) {
@@ -1146,7 +1152,7 @@ function drawReels(ts) {
       }
     } else {
       // Stopped: show result, with tiny settle bounce and a pop/glow on winning cells.
-      const bounce = rv.bounce ? Math.sin(rv.bounce * Math.PI) * 6 * (1 - rv.bounceT) : 0;
+      const bounce = rv.bounce ? Math.sin(rv.bounce * Math.PI * 1.5) * 10 * (1 - rv.bounceT) : 0;
       for (let row = 0; row < CONFIG.rows; row++) {
         const y = GRIDY + row * ROWH + ROWH / 2 + (rv.stopped ? bounce : 0);
         if (winSet.has(r + "," + row)) {
@@ -1237,10 +1243,13 @@ function frame(ts) {
 
   for (const rv of reelView) {
     if (rv.spinning) {
-      rv.offset += rv.speed * dt;
+      // ease-out over the last 0.36s so the reel lands with weight instead of snapping
+      const left = (rv.stopAt - ts) / 1000;
+      const sp = left < 0.36 ? rv.speed * Math.max(0.1, left / 0.36) : rv.speed;
+      rv.offset += sp * dt;
       if (ts >= rv.stopAt) stopReel(rv);
     } else if (rv.bounce !== undefined && rv.bounceT < 1) {
-      rv.bounceT = Math.min(1, rv.bounceT + dt * 3.2);
+      rv.bounceT = Math.min(1, rv.bounceT + dt * 2.7);
       rv.bounce = 1 - rv.bounceT;
     }
   }
