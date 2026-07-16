@@ -375,7 +375,7 @@
     <p>🍌 <b>WILD (Bumbana)</b> substitutes for any coin except the 🚀 Scatter and 🪂 Airdrop. Five Bumbana WILDs = the <b>100× JACKPOT</b>.</p>
     <p>🚀 <b>SCATTER</b> — land 3 / 4 / 5 anywhere for <b>10 / 15 / 20 free spins</b> (Pump Session) where every win is <b>×2</b>.</p>
     <p>🪂 <b>AIRDROP</b> — land 3+ anywhere to open the pick-a-crate bonus for extra Nanas.</p>
-    <p>🍌 <b>Nanas</b> are virtual chips with <b>no cash value</b>. There is no way to buy chips and no way to cash out — top up free every day with the Daily Bonus, or grab a free refill when you run low.</p>
+    <p>🍌 <b>Nanas</b> are virtual chips with <b>no cash value</b>. You can't buy them and there is <b>no real-money or crypto payout</b> — the "Cash Out" button just banks your Nanas into your in-game Bumbana Wallet and lets you brag. Top up free every day with the Daily Bonus, or grab a free refill when you run low.</p>
     <p style="text-align:center; color:#b9c6db"><b>For entertainment only. Not real-money gambling.</b></p>
     <button class="btn" id="infoClose" style="background:var(--panel); color:var(--text); border:1px solid var(--edge)">Got it</button>
   </div>
@@ -1844,15 +1844,20 @@ function updateCashoutBtn() {
 }
 function openCashout() {
   Sound.ensure(); Sound.click();
-  document.getElementById("cashoutAmount").textContent = fmt(State.winMeter);
-  document.getElementById("cashoutSub").textContent = State.winMeter > 0
-    ? "banked from this session" : "spin to win some Nanas first!";
+  const banked = State.winMeter;   // the winnings we're banking this cash-out
+  document.getElementById("cashoutAmount").textContent = fmt(banked);
+  document.getElementById("cashoutSub").textContent = banked > 0
+    ? "banked to your wallet" : "spin to win some Nanas first!";
   document.getElementById("cashoutBalance").textContent = fmt(State.balance);
   document.getElementById("cashoutBiggest").textContent = fmt(State.biggestWin);
   document.getElementById("cashoutBest").textContent = fmt(State.best);
   document.getElementById("cashoutWallet").textContent = bumbanaWalletId();
   document.getElementById("cashoutOverlay").classList.add("show");
-  if (State.winMeter > 0) { spawnCoins(30); Sound.coinCascade(8); Sound.big(); }
+  if (banked > 0) { spawnCoins(30); Sound.coinCascade(8); Sound.big(); }
+  // Banking the winnings clears the WIN meter so it starts fresh — the balance
+  // (which already holds the money) is untouched. Keeps the loop satisfying and
+  // keeps WIN meaning "winnings since your last cash-out".
+  State.winMeter = 0; setWin(0); persist(); updateCashoutBtn();
 }
 async function shareWin() {
   Sound.click();
