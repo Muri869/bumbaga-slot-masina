@@ -81,7 +81,13 @@
   .stat .label { font-size: 10px; letter-spacing: 1.2px; color: var(--muted); text-transform: uppercase; }
   .stat .val { font-size: 20px; font-weight: 900; margin-top: 2px; font-variant-numeric: tabular-nums; }
   .stat .val.gold { color: var(--gold); text-shadow: 0 0 12px rgba(244,197,66,.5); }
-  .stat .val.green { color: var(--green); text-shadow: 0 0 12px rgba(34,197,94,.45); }
+  .stat .val.green { color: var(--green); text-shadow: 0 0 12px rgba(34,197,94,.45); display: inline-block; }
+  .winpulse { animation: winpulse .55s cubic-bezier(.2,.9,.3,1); }
+  @keyframes winpulse {
+    0%   { transform: scale(1);   color: #baffcf; text-shadow: 0 0 6px rgba(34,197,94,.5); }
+    30%  { transform: scale(1.5); color: #ffe066; text-shadow: 0 0 22px rgba(255,224,102,.95), 0 0 40px rgba(34,197,94,.6); }
+    100% { transform: scale(1);   color: var(--green); text-shadow: 0 0 12px rgba(34,197,94,.45); }
+  }
 
   /* ---- Slot frame ---- */
   .slot {
@@ -469,7 +475,7 @@ const State = {
   bet: Store.gGet("bet", CONFIG.betOptions[0]),
   best: Store.gGet("best", CONFIG.startingBalance),      // best = highest balance reached
   biggestWin: Store.gGet("biggestWin", 0),
-  muted: Store.gGet("muted", true),                      // default silent
+  muted: Store.gGet("muted", false),                     // sound ON by default
   lastRefill: Store.gGet("lastRefill", 0),
   bonusLastDay: Store.gGet("bonusLastDay", ""),          // YYYY-MM-DD of last claim
   bonusStreak: Store.gGet("bonusStreak", 0),
@@ -478,6 +484,7 @@ const State = {
   freeSpins: 0,
   freeActive: false,
   freeWin: 0,          // accumulated winnings across a Pump Session
+  winMeter: 0,         // running total of every win this session (the WIN display)
   bonusActive: false,
   autoRemaining: 0,
   lastWin: 0,
@@ -728,7 +735,7 @@ const Music = {
     if (this.ctx.state === "suspended") this.ctx.resume();
     this.playing = true; this.step = 0; this.nextTime = this.ctx.currentTime + 0.06;
     const g = this.master.gain, now = this.ctx.currentTime;
-    g.cancelScheduledValues(now); g.setValueAtTime(g.value, now); g.linearRampToValueAtTime(0.17, now + 0.7);
+    g.cancelScheduledValues(now); g.setValueAtTime(g.value, now); g.linearRampToValueAtTime(0.3, now + 0.7);
     this.scheduler();
   },
   stop() {
@@ -1445,7 +1452,6 @@ async function doSpin() {
     State.balance -= bet;
   }
   State.spinning = true;
-  setWin(0);
   updateHud();
   Sound.ensure(); Sound.spin();
 
@@ -1497,15 +1503,19 @@ function finishSpin(result, bet, wasFree) {
       screenFlash = { t: 0.5, dur: 0.5, color: "255,225,150" }; Sound.coinCascade(8);
     } else {
       Sound.win(); Sound.coinCascade(Math.min(6, Math.ceil(nCoins / 5)));
+      screenFlash = { t: 0.28, dur: 0.28, color: "120,230,160" }; // gentle green pop on any win
     }
   } else {
     winFlash = { lines: [], t: 0 };
   }
 
-  // WIN display: during a Pump Session it accumulates across free spins;
-  // otherwise it shows this spin's win.
-  if (wasFree) { State.freeWin += win; setWin(State.freeWin); }
-  else { setWin(win); }
+  // WIN display: a running total that keeps climbing as you win. Every win adds
+  // to the meter and it never resets on a spin — so wins visibly stack up.
+  // Free-spin wins also feed the separate freeWin tally for the Pump Session banner.
+  if (win > 0) State.winMeter += win;
+  if (wasFree) State.freeWin += win;
+  setWin(State.winMeter);
+  if (win > 0) pulseWin();
 
   // Best = highest balance reached.
   if (State.balance > State.best) State.best = State.balance;
@@ -1590,7 +1600,8 @@ function openAirdrop(bet, done) {
     State.balance += totalWin;
     if (totalWin > State.biggestWin) State.biggestWin = totalWin;
     if (State.balance > State.best) State.best = State.balance;
-    setWin(totalWin); persist(); updateHud();
+    if (totalWin > 0) { State.winMeter += totalWin; pulseWin(); }
+    setWin(State.winMeter); persist(); updateHud();
     overlay.classList.remove("show");
     State.bonusActive = false;
     showWinBanner("🪂 AIRDROP", totalWin); Sound.big(); spawnCoins(36);
@@ -1705,6 +1716,10 @@ function updateHud() {
   document.getElementById("betVal").textContent = fmt(State.bet);
 }
 function setWin(n) { State.lastWin = n; document.getElementById("winVal").textContent = fmt(n); }
+function pulseWin() {
+  const el = document.getElementById("winVal");
+  el.classList.remove("winpulse"); void el.offsetWidth; el.classList.add("winpulse");
+}
 
 function renderBets() {
   const wrap = document.getElementById("bets"); wrap.innerHTML = "";
@@ -1802,6 +1817,23 @@ function init() {
   // Keyboard: space to spin.
   window.addEventListener("keydown", e => { if (e.code === "Space") { e.preventDefault(); document.getElementById("spinBtn").click(); } });
   window.addEventListener("resize", layout);
+
+  // Autostart audio on the first user gesture (browsers block audio until then).
+  // If not muted, the pumped Bumbana groove kicks in the moment the player touches anything.
+  let audioKicked = false;
+  function kickAudio() {
+    if (audioKicked) return;
+    audioKicked = true;
+    Sound.ensure();
+    if (!State.muted) { Music.setIntense(State.freeActive); Music.start(); }
+    window.removeEventListener("pointerdown", kickAudio);
+    window.removeEventListener("keydown", kickAudio);
+    window.removeEventListener("touchstart", kickAudio);
+  }
+  window.addEventListener("pointerdown", kickAudio);
+  window.addEventListener("keydown", kickAudio);
+  window.addEventListener("touchstart", kickAudio);
+  document.getElementById("muteBtn").textContent = State.muted ? "🔇" : "🔊";
 
   checkRefill(false);
   checkDailyBonus();
