@@ -4,7 +4,7 @@ For whoever owns the **Bumbana Games Hub** (the React + Supabase app at `bumbana
 
 ## What this is
 
-- **`bumbana.html`** — the game. One self-contained file: no libraries, no build step, no image files (canvas + emoji). Open it in any browser and it works.
+- **`bumbana.html`** — the game. One self-contained file: no libraries, no build step, no external files (coin tokens are canvas-drawn; the banana mascot is embedded inline). Open it in any browser and it works.
 - It's a **free-play social-casino slot**: 5×3 reels, 9 paylines, virtual chips only ("Nanas" 🍌). **No real money, no crypto, no purchases, no cash-out.** The "for entertainment only / no cash value" notice is built into the UI (SL + EN).
 
 ## Publishing options
@@ -43,4 +43,4 @@ Add a card matching the others, tagline **"Spin the reels. Stack the bananas."**
 ## Not included (optional stretch, noted in the brief)
 
 - Share-on-big-win (needs the hub's share/X infra).
-- "Airdrop Bonus" pick-a-crate round (3× 🎁).
+- "Airdrop Bonus" pick-a-crate round (3× 🪂).
