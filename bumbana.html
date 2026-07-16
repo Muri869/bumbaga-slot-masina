@@ -847,28 +847,110 @@ function drawCoin(coin, cx, cy, size) {
   ctx.restore();
 }
 
+// Global animation clock (ms) — set each frame so drawSymbol can animate shine.
+let animClock = 0;
+
+// Cached metallic medallion frame (beveled gold ring + recessed dark centre)
+// rendered once per pixel size. The real coin logo is drawn into the recess.
+const _ringCache = {};
+// Recessed-centre colour per symbol type (gold ring is shared).
+const RECESS = {
+  coin:    ["#242c44", "#141a2c", "#070b15"],
+  wild:    ["#5334a0", "#2c1a62", "#140a2c"],
+  scatter: ["#c8891a", "#5a3a08", "#241402"],
+  crate:   ["#12a06a", "#0b5a3a", "#052018"],
+};
+function coinRing(px, variant) {
+  const key = px + ":" + (variant || "coin");
+  if (_ringCache[key]) return _ringCache[key];
+  const c = document.createElement("canvas"); c.width = c.height = px;
+  const g = c.getContext("2d");
+  const C = px/2, R = px*0.485, r = px*0.365, TAU = Math.PI*2;
+  // metallic vertical gradient body
+  const ring = g.createLinearGradient(0, C-R, 0, C+R);
+  ring.addColorStop(0, "#fff6cc"); ring.addColorStop(0.26, "#f2c452"); ring.addColorStop(0.5, "#caa22f");
+  ring.addColorStop(0.74, "#7d5613"); ring.addColorStop(1, "#efc659");
+  g.fillStyle = ring; g.beginPath(); g.arc(C, C, R, 0, TAU); g.fill();
+  // diagonal metallic sheen
+  const sheen = g.createLinearGradient(C-R, C-R, C+R, C+R);
+  sheen.addColorStop(0, "rgba(255,255,255,0.55)"); sheen.addColorStop(0.34, "rgba(255,255,255,0)");
+  sheen.addColorStop(0.7, "rgba(255,255,255,0)"); sheen.addColorStop(1, "rgba(255,255,255,0.30)");
+  g.globalCompositeOperation = "overlay"; g.fillStyle = sheen; g.beginPath(); g.arc(C, C, R, 0, TAU); g.fill();
+  g.globalCompositeOperation = "source-over";
+  // outer bevel: light top-left arc, dark bottom-right arc
+  g.lineWidth = px*0.016;
+  g.strokeStyle = "rgba(255,255,255,0.55)"; g.beginPath(); g.arc(C, C, R - g.lineWidth*0.5, Math.PI*0.9, Math.PI*2.0); g.stroke();
+  g.strokeStyle = "rgba(110,72,8,0.65)"; g.beginPath(); g.arc(C, C, R - g.lineWidth*0.5, Math.PI*-0.1, Math.PI*0.9); g.stroke();
+  // recessed centre (tinted per variant)
+  const rc = RECESS[variant] || RECESS.coin;
+  const recess = g.createRadialGradient(C, C-r*0.35, r*0.15, C, C, r);
+  recess.addColorStop(0, rc[0]); recess.addColorStop(0.72, rc[1]); recess.addColorStop(1, rc[2]);
+  g.fillStyle = recess; g.beginPath(); g.arc(C, C, r, 0, TAU); g.fill();
+  // inner groove (dark ring + faint top light)
+  g.lineWidth = px*0.022; g.strokeStyle = "rgba(0,0,0,0.55)"; g.beginPath(); g.arc(C, C, r, 0, TAU); g.stroke();
+  g.lineWidth = px*0.009; g.strokeStyle = "rgba(255,240,190,0.32)"; g.beginPath(); g.arc(C, C, r - px*0.014, Math.PI*0.95, Math.PI*2.05); g.stroke();
+  _ringCache[key] = c; return c;
+}
+
+const MEDAL_D = 1.62; // medallion outer diameter as a multiple of `size`
+function medallionBase(cx, cy, size, variant) {
+  const D = size * MEDAL_D, px = Math.round(D * DPR);
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.55)"; ctx.shadowBlur = size*0.14; ctx.shadowOffsetY = size*0.045;
+  ctx.drawImage(coinRing(px, variant), cx - D/2, cy - D/2, D, D);
+  ctx.restore();
+  return D;
+}
+function clipRecess(cx, cy, D) { ctx.beginPath(); ctx.arc(cx, cy, D*0.365*0.99, 0, Math.PI*2); ctx.clip(); }
+function medallionShine(cx, cy, D) {
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, D*0.485, 0, Math.PI*2); ctx.clip();
+  const phase = (cx * 0.0016 + cy * 0.0011);
+  const sweep = ((animClock / 2800 + phase) % 1);
+  const sxp = cx - D*0.62 + sweep * D*1.24;
+  const sh = ctx.createLinearGradient(sxp - D*0.16, cy - D*0.5, sxp + D*0.16, cy + D*0.5);
+  sh.addColorStop(0, "rgba(255,255,255,0)"); sh.addColorStop(0.5, "rgba(255,255,255,0.22)"); sh.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = sh; ctx.fillRect(cx - D/2, cy - D/2, D, D);
+  ctx.restore();
+}
+
+// Coin logo inside a gold medallion.
+function drawMedallion(src, cx, cy, size) {
+  const D = medallionBase(cx, cy, size, "coin");
+  ctx.save(); clipRecess(cx, cy, D);
+  const ld = D * 0.365 * 2 * 0.94;
+  ctx.drawImage(src, cx - ld/2, cy - ld/2, ld, ld);
+  ctx.restore();
+  medallionShine(cx, cy, D);
+}
+
 function drawSymbol(id, cx, cy, size, alpha) {
   ctx.save();
   ctx.globalAlpha = alpha === undefined ? 1 : alpha;
   const s = SYM[id];
   if (s.img) {
-    // WILD = Bumbana banana mascot image.
-    const d = size * 1.02;
-    if (bananaReady) ctx.drawImage(bananaImg, cx - d/2, cy - d/2, d, d);
-    else { ctx.font = `${size*0.9}px system-ui, "Apple Color Emoji"`; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("🍌", cx, cy); }
-    ctx.globalAlpha = (alpha === undefined ? 1 : alpha) * 0.9;
-    ctx.font = `800 ${size*0.2}px -apple-system, system-ui`;
-    ctx.fillStyle = "#f4c542"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText("WILD", cx, cy + size*0.42);
-  } else if (s.coinImg && (coinClean[s.coinImg] || (coinImgs[s.coinImg] && coinImgs[s.coinImg].complete && coinImgs[s.coinImg].naturalWidth))) {
-    const src = coinClean[s.coinImg] || coinImgs[s.coinImg];
-    const d = size * 1.48; // card stripped, so the coin disc fills the cell
-    ctx.save();
-    ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowBlur = size*0.11; ctx.shadowOffsetY = size*0.025;
-    ctx.drawImage(src, cx - d/2, cy - d/2, d, d);
+    // WILD = Bumbana banana in a glowing purple medallion.
+    const D = medallionBase(cx, cy, size, "wild");
+    ctx.save(); clipRecess(cx, cy, D);
+    if (bananaReady) { const ld = D * 0.365 * 2 * 0.86; ctx.drawImage(bananaImg, cx - ld/2, cy - ld/2 - D*0.05, ld, ld); }
+    else { ctx.font = `${size*0.6}px system-ui, "Apple Color Emoji"`; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("🍌", cx, cy - D*0.05); }
+    ctx.font = `900 ${size*0.17}px -apple-system, system-ui`;
+    ctx.fillStyle = "#ffe487"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("WILD", cx, cy + D*0.27);
     ctx.restore();
+    medallionShine(cx, cy, D);
+  } else if (s.coinImg && (coinClean[s.coinImg] || (coinImgs[s.coinImg] && coinImgs[s.coinImg].complete && coinImgs[s.coinImg].naturalWidth))) {
+    drawMedallion(coinClean[s.coinImg] || coinImgs[s.coinImg], cx, cy, size);
   } else if (s.coin) {
-    drawCoin(s.coin, cx, cy, size);
+    // SCATTER / CRATE / fallback coin — glyph inside a tinted medallion.
+    const variant = s.scatter ? "scatter" : (s.crate ? "crate" : "coin");
+    const D = medallionBase(cx, cy, size, variant);
+    ctx.save(); clipRecess(cx, cy, D);
+    ctx.font = `${D*0.4}px system-ui, "Apple Color Emoji", "Segoe UI Emoji"`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(s.coin.glyph, cx, cy + D*0.03);
+    ctx.restore();
+    medallionShine(cx, cy, D);
   } else if (s.coinImg) {
     // Image not yet decoded — neutral placeholder coin so nothing renders as text.
     ctx.fillStyle = "#1a2440"; ctx.beginPath(); ctx.arc(cx, cy, size*0.42, 0, Math.PI*2); ctx.fill();
@@ -973,6 +1055,7 @@ function drawGlass() {
 }
 
 function drawReels(ts) {
+  animClock = ts;
   ctx.clearRect(0, 0, 720, 440);
   drawBackdrop(ts);
 
