@@ -1845,14 +1845,35 @@ function renderBets() {
   });
 }
 
-let winBannerTimer = null;
+let winBannerTimer = null, countUpRAF = null;
 function showWinBanner(kind, amt) {
   const b = document.getElementById("winBanner");
+  const amtEl = document.getElementById("winAmt");
   document.getElementById("winKind").textContent = kind;
-  document.getElementById("winAmt").textContent = typeof amt === "number" ? fmt(amt) : amt;
   b.classList.remove("show"); void b.offsetWidth; b.classList.add("show");
   clearTimeout(winBannerTimer);
-  winBannerTimer = setTimeout(() => b.classList.remove("show"), 2200);
+  if (countUpRAF) cancelAnimationFrame(countUpRAF);
+  if (typeof amt === "number" && amt > 0) {
+    // Premium count-up: the number rolls from 0 to the win, easing out, with a
+    // rising tick — makes even a modest win feel like an event.
+    const dur = Math.min(1200, 500 + amt * 0.6);   // bigger wins count longer
+    const start = performance.now();
+    let lastTick = 0;
+    const tick = (now) => {
+      const p = Math.min(1, (now - start) / dur);
+      const eased = 1 - Math.pow(1 - p, 3);
+      const val = Math.round(amt * eased);
+      amtEl.textContent = fmt(val);
+      // rising blip roughly every ~90ms while counting
+      if (!State.muted && now - lastTick > 85 && p < 1) { lastTick = now; Sound.blip(720 + 900 * eased, 0.04, "triangle", 0.05); }
+      if (p < 1) countUpRAF = requestAnimationFrame(tick);
+      else { amtEl.textContent = fmt(amt); countUpRAF = null; }
+    };
+    countUpRAF = requestAnimationFrame(tick);
+  } else {
+    amtEl.textContent = typeof amt === "number" ? fmt(amt) : amt;
+  }
+  winBannerTimer = setTimeout(() => b.classList.remove("show"), 2400);
 }
 
 // --- Cash Out (free-play): a celebratory "bank your winnings" summary.
