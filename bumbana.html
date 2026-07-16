@@ -477,6 +477,7 @@ const State = {
   spinning: false,
   freeSpins: 0,
   freeActive: false,
+  freeWin: 0,          // accumulated winnings across a Pump Session
   bonusActive: false,
   autoRemaining: 0,
   lastWin: 0,
@@ -717,6 +718,8 @@ const Music = {
       // route through the shared compressor + a reverb send for space/glue
       this.master.connect(Sound.comp || this.ctx.destination);
       if (Sound.reverb) { this.revSend = this.ctx.createGain(); this.revSend.gain.value = 0.16; this.master.connect(this.revSend); this.revSend.connect(Sound.reverb); }
+      // sidechain "pump" bus: harmony/bass/lead run through this and duck on each kick
+      this.pump = this.ctx.createGain(); this.pump.gain.value = 1; this.pump.connect(this.master);
     }
   },
   start() {
@@ -725,7 +728,7 @@ const Music = {
     if (this.ctx.state === "suspended") this.ctx.resume();
     this.playing = true; this.step = 0; this.nextTime = this.ctx.currentTime + 0.06;
     const g = this.master.gain, now = this.ctx.currentTime;
-    g.cancelScheduledValues(now); g.setValueAtTime(g.value, now); g.linearRampToValueAtTime(0.14, now + 0.7);
+    g.cancelScheduledValues(now); g.setValueAtTime(g.value, now); g.linearRampToValueAtTime(0.17, now + 0.7);
     this.scheduler();
   },
   stop() {
@@ -736,7 +739,16 @@ const Music = {
       g.cancelScheduledValues(now); g.setValueAtTime(g.value, now); g.linearRampToValueAtTime(0, now + 0.3);
     }
   },
-  setIntense(v) { this.intense = v; this.tempo = v ? 126 : 112; },
+  setIntense(v) { this.intense = v; this.tempo = v ? 132 : 124; },
+  // The catchy "Bumbana" lead hook: same bouncy rhythm every bar, pitched to the
+  // chord, so it's instantly recognisable. Steps are 16ths within each bar.
+  leadRhythm: [0, 3, 6, 8, 11, 14],
+  leadNotes: [
+    [76, 81, 84, 81, 84, 76], // Am: E A C
+    [77, 81, 84, 81, 84, 77], // F:  F A C
+    [76, 79, 84, 79, 84, 76], // C:  E G C
+    [74, 79, 83, 79, 83, 74], // G:  D G B
+  ],
   scheduler() {
     if (!this.playing) return;
     const st = (60 / this.tempo) / 4; // one 16th note
@@ -747,12 +759,41 @@ const Music = {
     this.timer = setTimeout(() => this.scheduler(), 25);
   },
   scheduleStep(step, time) {
-    const chord = this.prog[Math.floor(step / 16)], s = step % 16;
-    if (s === 0) this.pad(chord, time);                                   // sustained warm pad each bar
-    if (s % 4 === 0) { this.bass(chord.root, time); this.kick(time); }    // sub-bass + kick on the beat
-    if (s % 2 === 0) this.tone(this.mtof(chord.arp[(s/2) % 4] + (this.intense ? 12 : 0)), time, 0.14, "triangle", 0.16); // softer arp
-    if (s % 2 === 1) this.hat(time, 0.2);
-    if (s === 4 || s === 12) this.snare(time);
+    const bar = Math.floor(step / 16), chord = this.prog[bar], s = step % 16;
+    // DRUMS (punch straight through to master)
+    if (s % 4 === 0) { this.kick(time); this.duck(time); }   // four-on-the-floor + sidechain pump
+    if (s === 4 || s === 12) this.clap(time);                // claps on 2 & 4
+    if (s % 2 === 1) this.hat(time, s % 4 === 3 ? 0.32 : 0.18);
+    // HARMONY / BASS / LEAD (through the pump bus)
+    if (s === 0) this.pad(chord, time);
+    if (s % 2 === 0) this.bass(chord.root + (s % 4 === 2 ? 7 : 0), time);   // driving 8th-note root/fifth
+    if (this.intense && s % 2 === 0) this.tone(this.mtof(chord.arp[(s/2) % 4] + 12), time, 0.11, "square", 0.09);
+    const li = this.leadRhythm.indexOf(s);
+    if (li >= 0) this.lead(this.leadNotes[bar][li], time);
+  },
+  // sidechain duck — dips the pump bus on each kick, then swells back
+  duck(time) {
+    const g = this.pump.gain, rel = (60 / this.tempo) * 0.92;
+    g.cancelScheduledValues(time); g.setValueAtTime(0.32, time); g.linearRampToValueAtTime(1.0, time + rel);
+  },
+  // bright plucky lead (the hook)
+  lead(note, time) {
+    const f = this.mtof(note);
+    const o1 = this.ctx.createOscillator(), o2 = this.ctx.createOscillator(), flt = this.ctx.createBiquadFilter(), g = this.ctx.createGain();
+    o1.type = "sawtooth"; o2.type = "square"; o1.frequency.value = f; o2.frequency.value = f * 1.006;
+    flt.type = "lowpass"; flt.frequency.setValueAtTime(this.intense ? 4400 : 3200, time); flt.frequency.exponentialRampToValueAtTime(950, time + 0.18); flt.Q.value = 7;
+    g.gain.setValueAtTime(0, time); g.gain.linearRampToValueAtTime(0.13, time + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, time + 0.22);
+    o1.connect(flt); o2.connect(flt); flt.connect(g); g.connect(this.pump);
+    o1.start(time); o2.start(time); o1.stop(time + 0.25); o2.stop(time + 0.25);
+  },
+  // hand-clap: two quick filtered noise bursts
+  clap(time) {
+    for (const off of [0, 0.012]) {
+      const s = this.ctx.createBufferSource(); s.buffer = this.noise();
+      const bp = this.ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1500; bp.Q.value = 1.2;
+      const g = this.ctx.createGain(); g.gain.setValueAtTime(0.5, time + off); g.gain.exponentialRampToValueAtTime(0.0001, time + off + 0.11);
+      s.connect(bp); bp.connect(g); g.connect(this.master); s.start(time + off); s.stop(time + off + 0.13);
+    }
   },
   // Warm, filtered, detuned pad chord sustained across the bar.
   pad(chord, time) {
@@ -765,23 +806,25 @@ const Music = {
       flt.type = "lowpass"; flt.frequency.value = this.intense ? 1700 : 1150; flt.Q.value = 0.5;
       g.gain.setValueAtTime(0, time); g.gain.linearRampToValueAtTime(0.045, time + 0.28);
       g.gain.setValueAtTime(0.045, time + dur * 0.6); g.gain.exponentialRampToValueAtTime(0.0001, time + dur);
-      o1.connect(flt); o2.connect(flt); flt.connect(g); g.connect(this.master);
+      o1.connect(flt); o2.connect(flt); flt.connect(g); g.connect(this.pump);
       o1.start(time); o2.start(time); o1.stop(time + dur + 0.05); o2.stop(time + dur + 0.05);
     }
   },
-  // Sub bass on the beat.
+  // Punchy driving bass (8th notes) through the pump bus.
   bass(rootMidi, time) {
-    const o = this.ctx.createOscillator(), g = this.ctx.createGain(), dur = (60 / this.tempo) * 0.9;
-    o.type = "triangle"; o.frequency.value = this.mtof(rootMidi - 12);
-    g.gain.setValueAtTime(0, time); g.gain.linearRampToValueAtTime(0.2, time + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, time + dur);
-    o.connect(g); g.connect(this.master); o.start(time); o.stop(time + dur + 0.02);
+    const o = this.ctx.createOscillator(), sub = this.ctx.createOscillator(), g = this.ctx.createGain(), dur = (60 / this.tempo) * 0.44;
+    o.type = "sawtooth"; o.frequency.value = this.mtof(rootMidi - 12);
+    sub.type = "sine"; sub.frequency.value = this.mtof(rootMidi - 24);
+    g.gain.setValueAtTime(0, time); g.gain.linearRampToValueAtTime(0.22, time + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+    o.connect(g); sub.connect(g); g.connect(this.pump);
+    o.start(time); sub.start(time); o.stop(time + dur + 0.02); sub.stop(time + dur + 0.02);
   },
   tone(freq, time, dur, type, vol) {
     const o = this.ctx.createOscillator(), g = this.ctx.createGain();
     o.type = type; o.frequency.value = freq;
     g.gain.setValueAtTime(0, time); g.gain.linearRampToValueAtTime(vol, time + 0.012);
     g.gain.exponentialRampToValueAtTime(0.0001, time + dur);
-    o.connect(g); g.connect(this.master); o.start(time); o.stop(time + dur + 0.02);
+    o.connect(g); g.connect(this.pump); o.start(time); o.stop(time + dur + 0.02);
   },
   kick(time) {
     const o = this.ctx.createOscillator(), g = this.ctx.createGain();
@@ -1438,7 +1481,6 @@ function finishSpin(result, bet, wasFree) {
   const win = Math.round(result.total);
   if (win > 0) {
     State.balance += win;
-    setWin(win);
     winFlash = { lines: result.lineWins, t: 2.6 };
     if (win > State.biggestWin) State.biggestWin = win;
     const nCoins = Math.min(60, 8 + Math.floor(win / bet));
@@ -1459,6 +1501,11 @@ function finishSpin(result, bet, wasFree) {
   } else {
     winFlash = { lines: [], t: 0 };
   }
+
+  // WIN display: during a Pump Session it accumulates across free spins;
+  // otherwise it shows this spin's win.
+  if (wasFree) { State.freeWin += win; setWin(State.freeWin); }
+  else { setWin(win); }
 
   // Best = highest balance reached.
   if (State.balance > State.best) State.best = State.balance;
@@ -1499,7 +1546,7 @@ function scheduleNext() {
 }
 
 function startFreeSpins(n, scN) {
-  State.freeActive = true; State.freeSpins = n;
+  State.freeActive = true; State.freeSpins = n; State.freeWin = 0;
   document.getElementById("slot").classList.add("freemode");
   updateFreeBanner();
   showWinBanner("🚀 PUMP SESSION!", n + " FREE SPINS");
@@ -1508,10 +1555,12 @@ function startFreeSpins(n, scN) {
 }
 function updateFreeBanner() { document.getElementById("freeCount").textContent = State.freeSpins; }
 function endFreeSpins() {
+  const total = State.freeWin;
   State.freeActive = false; State.freeSpins = 0;
   document.getElementById("slot").classList.remove("freemode");
   Music.setIntense(false);
-  toast("Pump Session complete!");
+  if (total > 0) { showWinBanner("🚀 PUMP SESSION WIN", total); if (total >= currentBet() * CONFIG.bigWinMult) Sound.big(); else Sound.win(); }
+  else toast("Pump Session complete!");
 }
 
 function waitUntil(t) { return new Promise(res => { (function chk(){ performance.now() >= t ? res() : requestAnimationFrame(chk); })(); }); }
