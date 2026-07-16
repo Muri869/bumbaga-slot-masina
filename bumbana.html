@@ -233,6 +233,17 @@
   .cashout-actions .btn { flex: 1; margin-top: 12px; }
   .cashout-actions .btn.ghost { background: var(--panel); color: var(--text); border: 1px solid var(--edge); }
 
+  /* ---- Paytable (in the info overlay) ---- */
+  .paytable { display: flex; flex-direction: column; gap: 3px; margin: 10px 0 4px;
+    background: var(--panel-2); border: 1px solid var(--edge); border-radius: 12px; padding: 8px 10px; }
+  .pt-row { display: grid; grid-template-columns: 1fr auto auto auto; align-items: center; gap: 6px; font-size: 12.5px; }
+  .pt-row.pt-head { color: var(--muted); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid var(--edge); padding-bottom: 3px; margin-bottom: 2px; }
+  .pt-sym { display: flex; align-items: center; gap: 7px; color: var(--text); font-weight: 700; }
+  .pt-chip { width: 16px; height: 16px; border-radius: 50%; flex: none; box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.25), 0 0 5px rgba(0,0,0,.4); font-size: 9px; display:grid; place-items:center; color:#fff; font-weight:900; }
+  .pt-pay { text-align: right; font-variant-numeric: tabular-nums; color: var(--gold); min-width: 42px; font-weight: 700; }
+  .pt-row.pt-head .pt-pay { color: var(--muted); font-weight: 600; }
+  .pt-note { font-size: 11px !important; color: var(--muted) !important; margin: 2px 0 8px !important; }
+
   /* ---- Footer / guardrail ---- */
   .guardrail { text-align: center; color: var(--muted); font-size: 10.5px; line-height: 1.5; padding: 4px 6px; }
   .guardrail b { color: #b9c6db; }
@@ -246,7 +257,7 @@
   .card {
     background: linear-gradient(180deg,var(--panel),var(--panel-2)); border: 1px solid var(--edge);
     border-radius: 20px; padding: 22px; max-width: 380px; width: 100%; text-align: center;
-    box-shadow: var(--shadow);
+    box-shadow: var(--shadow); max-height: 90vh; overflow-y: auto;
   }
   .card h2 { margin: 4px 0 8px; font-size: 22px; }
   .card p { color: var(--muted); font-size: 13.5px; line-height: 1.6; margin: 8px 0; }
@@ -371,7 +382,9 @@
 <div class="overlay" id="infoOverlay">
   <div class="card" style="text-align:left; max-width:420px;">
     <h2 style="text-align:center">How Bumbana works</h2>
-    <p><b>5 reels × 3 rows, 9 paylines.</b> Match <b>3+</b> identical crypto coins left-to-right on a payline to win. Highest pay: <b>Bitcoin</b> → Ethereum → BNB → Solana; the low fillers are XRP, Cardano, Dogecoin & Shiba.</p>
+    <p><b>5 reels × 3 rows, 9 paylines.</b> Match <b>3+</b> identical crypto coins left-to-right on a payline to win.</p>
+    <div class="paytable" id="paytable"></div>
+    <p class="pt-note">Payouts are per line, as a multiplier of your line bet (total bet ÷ 9). 2-of-a-kind on the top coins pays a little too.</p>
     <p>🍌 <b>WILD (Bumbana)</b> substitutes for any coin except the 🚀 Scatter and 🪂 Airdrop. Five Bumbana WILDs = the <b>100× JACKPOT</b>.</p>
     <p>🚀 <b>SCATTER</b> — land 3 / 4 / 5 anywhere for <b>10 / 15 / 20 free spins</b> (Pump Session) where every win is <b>×2</b>.</p>
     <p>🪂 <b>AIRDROP</b> — land 3+ anywhere to open the pick-a-crate bonus for extra Nanas.</p>
@@ -1845,6 +1858,21 @@ function renderBets() {
   });
 }
 
+// Build the paytable in the info overlay straight from PAYTABLE so it never
+// goes stale. Values are per-line multipliers (highest coin first).
+const PT_COLORS = { BTC:"#f7931a", ETH:"#627eea", BNB:"#f3ba2f", SOL:"#14b892", XRP:"#5b6672", ADA:"#3468d1", DOGE:"#c2a633", SHIB:"#e34b28" };
+const PT_TICK = { BTC:"₿", ETH:"◆", BNB:"◈", SOL:"◎", XRP:"✕", ADA:"₳", DOGE:"Ð", SHIB:"🐕" };
+function renderPaytable() {
+  const el = document.getElementById("paytable"); if (!el) return;
+  let html = '<div class="pt-row pt-head"><span>Coin</span><span class="pt-pay">3×</span><span class="pt-pay">4×</span><span class="pt-pay">5×</span></div>';
+  for (const k of ["BTC","ETH","BNB","SOL","XRP","ADA","DOGE","SHIB"]) {
+    const p = PAYTABLE[k]; if (!p) continue;
+    html += '<div class="pt-row"><span class="pt-sym"><span class="pt-chip" style="background:' + PT_COLORS[k] + '">' + (PT_TICK[k] || "") + '</span>' + SYM[k].name + '</span>'
+      + '<span class="pt-pay">' + p[3] + '</span><span class="pt-pay">' + p[4] + '</span><span class="pt-pay">' + p[5] + '</span></div>';
+  }
+  el.innerHTML = html;
+}
+
 let winBannerTimer = null, countUpRAF = null;
 function showWinBanner(kind, amt) {
   const b = document.getElementById("winBanner");
@@ -2033,6 +2061,7 @@ function init() {
   window.addEventListener("touchstart", kickAudio);
   document.getElementById("muteBtn").textContent = State.muted ? "🔇" : "🔊";
 
+  renderPaytable();
   checkRefill(false);
   checkDailyBonus();
   requestAnimationFrame(frame);
